@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TransN Checker — Web</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c2230; --line:#2a3240; --txt:#dfe6f0;
+    --muted:#8b97a8; --accent:#4aa3ff; --green:#3fb950; --greenbg:#10311b;
+    --amber:#d6a316; --amberbg:#2e2710; --red:#f0556a; --redbg:#3a1620; --blue:#58a6ff; --bluebg:#10243e;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.45 "Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--txt)}
+  header{background:#0b0e13;border-bottom:1px solid var(--line);padding:10px 16px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  header h1{font-size:16px;margin:0;font-weight:600;letter-spacing:.3px}
+  header .badge{font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:10px;padding:2px 8px}
+  header .profile{margin-left:auto;font-size:12px;color:var(--muted)}
+  header .profile b{color:var(--txt)}
+  button{font:inherit;cursor:pointer;background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:6px 12px}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:#13335c;border-color:#1d4d87}
+  button.primary:hover{background:#184a82}
+  a{color:var(--accent)}
+  .wrap{display:flex;height:calc(100vh - 49px)}
+  .left{flex:1;min-width:0;display:flex;flex-direction:column;border-right:1px solid var(--line)}
+  .right{width:42%;min-width:340px;max-width:640px;overflow:auto;padding:14px 16px;background:#0c1017}
+  .toolbar{padding:10px 14px;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .drop{flex:1;min-height:0;overflow:auto}
+  #empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted);gap:14px;text-align:center;padding:30px}
+  #empty .big{font-size:46px}
+  #empty .hint{max-width:440px;font-size:13px}
+  table{border-collapse:collapse;width:100%;font-size:12.5px}
+  th,td{border-bottom:1px solid var(--line);padding:4px 7px;text-align:left;white-space:nowrap}
+  th{position:sticky;top:0;background:#10151d;color:var(--muted);font-weight:600;font-size:11px;z-index:2}
+  td.num{text-align:right;font-variant-numeric:tabular-nums}
+  tr.row{cursor:pointer}
+  tr.row:hover td{background:#141a23}
+  tr.sel td{background:#15233a !important}
+  .st{display:inline-flex;align-items:center;gap:5px;font-weight:600;font-size:11px;border-radius:10px;padding:1px 8px}
+  .st.OK{color:var(--green);background:var(--greenbg)}
+  .st.Info{color:var(--blue);background:var(--bluebg)}
+  .st.Attention{color:var(--amber);background:var(--amberbg)}
+  .st.Erreur{color:var(--red);background:var(--redbg)}
+  td.corr{white-space:normal;color:var(--muted);font-size:11.5px}
+  .tag{display:inline-block;border-radius:4px;padding:0 5px;margin:1px 3px 1px 0;font-size:10.5px}
+  .tag.av{color:var(--green);background:var(--greenbg)}
+  .tag.de{color:var(--red);background:var(--redbg)}
+  .tag.nf{color:var(--blue);background:var(--bluebg)}
+  /* counters */
+  .counters{border-top:1px solid var(--line);background:#0b0f15;padding:8px 12px;display:flex;gap:8px;flex-wrap:wrap;font-size:11.5px;max-height:150px;overflow:auto}
+  .cbox{border:1px solid var(--line);border-radius:6px;padding:5px 9px;min-width:96px}
+  .cbox .k{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.4px}
+  .cbox .v{font-size:15px;font-weight:600;margin-top:2px}
+  .cbox.err{border-color:#5a2230;background:var(--redbg)}
+  .cbox.err .v{color:var(--red)}
+  .cbox.chf .v{color:var(--green)}
+  /* detail */
+  #detail h2{font-size:13px;margin:0 0 4px;color:var(--accent);letter-spacing:.4px}
+  #detail .day{font-size:15px;font-weight:600;margin:2px 0 10px}
+  .sec{border:1px solid var(--line);border-radius:8px;padding:9px 11px;margin-bottom:10px;background:var(--panel)}
+  .sec h3{margin:0 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+  .kv{display:flex;justify-content:space-between;gap:10px;padding:1px 0}
+  .kv .kk{color:var(--muted)}
+  .kv .vv{font-variant-numeric:tabular-nums;text-align:right}
+  .corritem{border-left:3px solid var(--line);padding:6px 10px;margin:8px 0;background:var(--panel2);border-radius:0 6px 6px 0}
+  .corritem.av{border-color:var(--green)}
+  .corritem.de{border-color:var(--red)}
+  .corritem.nf{border-color:var(--blue)}
+  .corritem .ch{font-weight:600;font-size:12.5px;margin-bottom:2px}
+  .corritem .vals{font-size:11.5px;color:var(--muted);margin-bottom:3px}
+  .corritem .vals .o{color:var(--red)} .corritem.av .vals .c{color:var(--green)}
+  .corritem .ex{font-size:11.5px;line-height:1.4}
+  .corritem .art{font-size:10.5px;color:var(--muted);margin-top:3px;font-style:italic}
+  #detail .none{color:var(--muted);text-align:center;padding:40px 10px}
+  /* settings modal */
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:50}
+  .modal.show{display:flex}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;width:460px;max-width:94vw;max-height:92vh;overflow:auto;padding:20px}
+  .card h2{margin:0 0 14px;font-size:17px}
+  .field{margin-bottom:13px}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+  .field input,.field select{width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit}
+  .field .row2{display:flex;gap:8px}
+  .field small{color:var(--muted);font-size:11px;display:block;margin-top:3px}
+  .seg{display:flex;gap:6px}
+  .seg button{flex:1}
+  .seg button.on{background:#13335c;border-color:var(--accent);color:#fff}
+  .modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
+  .gpsline{font-size:11.5px;color:var(--muted);margin-top:4px}
+  .gpsline.ok{color:var(--green)}
+  .err-inline{color:var(--red);font-size:12px;margin-top:6px;min-height:14px}
+  .spin{display:inline-block;width:13px;height:13px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:s .7s linear infinite;vertical-align:-2px}
+  @keyframes s{to{transform:rotate(360deg)}}
+  .foot{font-size:11px;color:var(--muted);padding:6px 14px;border-top:1px solid var(--line);background:#0b0e13}
+  /* help modal */
+  .hcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;width:1040px;max-width:96vw;height:88vh;display:flex;flex-direction:column;overflow:hidden}
+  .hhead{background:#0d0e12;border-bottom:1px solid var(--line);padding:11px 16px;display:flex;align-items:center;gap:10px}
+  .hhead h2{margin:0;font-size:15px;color:var(--accent)}
+  .hhead .x{margin-left:auto}
+  .hbody{flex:1;display:flex;min-height:0}
+  .hnav{width:280px;border-right:1px solid var(--line);overflow:auto;background:#10151d;padding:8px 0}
+  .hnav .grp{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);padding:10px 16px 4px}
+  .hnav a{display:block;padding:6px 16px;color:var(--txt);text-decoration:none;font-size:13px;border-left:3px solid transparent;cursor:pointer}
+  .hnav a:hover{background:#141a23}
+  .hnav a.on{border-left-color:var(--accent);background:#15233a;color:#fff}
+  .hcontent{flex:1;overflow:auto;padding:18px 24px;font-size:13.5px;line-height:1.55}
+  .hcontent h3{color:var(--gold,#f0c040);color:#f0c040;font-size:16px;margin:0 0 4px;border-bottom:1px solid var(--line);padding-bottom:8px}
+  .hcontent h4{color:var(--blue);font-size:13px;margin:16px 0 5px;letter-spacing:.3px}
+  .hcontent p{margin:6px 0}
+  .hcontent ul{margin:6px 0;padding-left:20px}
+  .hcontent li{margin:3px 0}
+  .hcontent .ok{color:var(--green)} .hcontent .warn{color:var(--amber)} .hcontent .bad{color:var(--red)} .hcontent .muted{color:var(--muted)}
+  .hcontent table.r{border-collapse:collapse;margin:8px 0;width:100%}
+  .hcontent table.r td{border:none;border-bottom:1px solid var(--line);padding:4px 8px;vertical-align:top;white-space:normal}
+  .hcontent table.r td:first-child{color:var(--blue);font-weight:600;width:34%;white-space:nowrap}
+  .hcontent .note{border-left:3px solid var(--amber);background:var(--amberbg);padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0;font-size:12.5px}
+  .hcontent .note.g{border-color:var(--green);background:var(--greenbg)}
+  .hcontent code{background:#0b0f15;border:1px solid var(--line);border-radius:4px;padding:0 4px;font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>TransN&nbsp;Checker</h1>
+  <span class="badge" id="verBadge">web</span>
+  <button id="btnOpen" class="primary">📄 Ouvrir un PDF</button>
+  <button id="btnSettings">⚙️ Paramètres (F2)</button>
+  <button id="btnHelp">❓ Aide / FAQ</button>
+  <input type="file" id="file" accept="application/pdf" style="display:none">
+  <div class="profile" id="profile"></div>
+</header>
+
+<div class="wrap">
+  <div class="left">
+    <div class="toolbar">
+      <strong id="fileName" style="font-size:12px">Aucun fichier</strong>
+      <label style="font-size:12px;margin-left:auto"><input type="checkbox" id="onlyIssues"> N'afficher que les anomalies</label>
+    </div>
+    <div class="drop" id="drop">
+      <div id="empty">
+        <div class="big">🚆</div>
+        <div><b>Glissez votre attestation PDF ici</b> ou cliquez sur « Ouvrir un PDF ».</div>
+        <div class="hint">Tout est analysé <b>dans votre navigateur</b> — le PDF ne quitte jamais votre ordinateur.
+        Pensez à régler votre <b>dépôt</b> et votre <b>adresse</b> dans Paramètres pour le calcul des indemnités km.</div>
+      </div>
+      <table id="grid" style="display:none">
+        <thead><tr>
+          <th>Date</th><th>Tour</th><th>Début</th><th>Fin</th>
+          <th>TR&nbsp;orig</th><th>TR&nbsp;GANTT</th><th>Ind.nuit</th><th>SBN</th>
+          <th>DTA</th><th>TS</th><th>Statut</th><th>Corrections</th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <div class="counters" id="counters" style="display:none"></div>
+  </div>
+  <div class="right">
+    <div id="detail"><div class="none">Cliquez sur une ligne pour voir le détail des calculs et corrections.</div></div>
+  </div>
+</div>
+<div class="foot">Outil indépendant, non affilié à transN — vérification LDT (RS 822.21) · OLDT (RS 822.211) · CCT transN. © SN@KE SWISS / RedCode Interactive.</div>
+
+<!-- Settings modal -->
+<div class="modal" id="settingsModal">
+  <div class="card">
+    <h2>⚙️ Configuration</h2>
+    <div class="field">
+      <label>Votre dépôt de rattachement</label>
+      <div class="seg" id="depotSeg">
+        <button data-d="NE">Neuchâtel</button>
+        <button data-d="FLE">Fleurier</button>
+        <button data-d="CDF">La Chaux-de-Fonds</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Mode</label>
+      <div class="seg" id="modeSeg">
+        <button data-m="hors_rotation">Hors rotation</button>
+        <button data-m="en_rotation">En rotation</button>
+      </div>
+      <small>« En rotation » (inférence du cycle) sera ajouté prochainement — pour l'instant l'analyse tourne en mode hors-rotation.</small>
+    </div>
+    <div class="field">
+      <label>Nom (facultatif)</label>
+      <input id="setNom" placeholder="Nom, Prénom">
+    </div>
+    <div class="field">
+      <label>Commune de domicile (pour les indemnités km) — <b>recommandé</b></label>
+      <select id="setCommune">
+        <option value="">— choisir votre commune —</option>
+      </select>
+      <small>Calcul des km <b>hors-ligne et conforme</b> (table officielle des distances). Suffit pour les indemnités km.</small>
+    </div>
+    <div class="field">
+      <label>Adresse précise (optionnel — affine les km, nécessite la version en ligne)</label>
+      <div class="row2">
+        <input id="setAddr" placeholder="Rue Numa-Droz 33, 2300 La Chaux-de-Fonds" style="flex:1">
+        <button type="button" id="btnGeocode" style="flex:0 0 auto">📍 Localiser</button>
+      </div>
+      <div class="gpsline" id="gpsLine">Position GPS : non définie</div>
+      <small>Le géocodage (OpenStreetMap) et le calcul routier (OSRM) ne fonctionnent <b>que sur la version hébergée</b> (GitHub Pages), pas en ouvrant le fichier en local. En cas d'échec, la commune ci-dessus suffit.</small>
+    </div>
+    <div class="err-inline" id="setErr"></div>
+    <div class="actions">
+      <button id="btnCancelSet">Annuler</button>
+      <button class="primary" id="btnSaveSet">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Help / FAQ modal -->
+<div class="modal" id="helpModal">
+  <div class="hcard">
+    <div class="hhead">
+      <h2>❓ Aide / FAQ — TransN Checker</h2>
+      <button class="x" id="btnCloseHelp">✕ Fermer</button>
+    </div>
+    <div class="hbody">
+      <div class="hnav" id="helpNav"></div>
+      <div class="hcontent" id="helpContent"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc =
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+/* =====================================================================
+   CONSTANTES CCT / LDT / OLDT   (port de CctConstants.cs)
+   ===================================================================== */
+const Cct = {
+  IndemNuit_CHF_h:5.50, IndemDim_CHF_h:5.50, IndemSam_CHF_h:5.50,
+  IndemRepas:25.00, IndemKm:0.70, IndemReposSupp:26.00, IndemReposSuppDim:52.00,
+  IndemNuit_Start:20*60, IndemNuit_End:6*60,
+  SBN_10pct_Start:22*60, SBN_40pct_End:4*60, SBN_40pct_EarlyEnd:5*60,
+  NocturneZone_Start:0, NocturneZone_End:4*60,
+  Amplitude_Max:720, Amplitude_CibleMax:660, TE_Max_Tour:600,
+  Ininterrompu_Max:330, Repos_ForceMajeure:480, Repos_AbsMin:540,
+  Repos_Hebdo:660, Repos_Cible:720, Nuits_Max_28j:15,
+  Norme_Journaliere:480, Rcomp_Duree:410, Solde_Max_Pos:72*60, Solde_Max_Neg:-41*60,
+  FeriesFixesNE:new Set(["01-01","01-02","03-01","05-01","08-01","12-25","12-26"]),
+
+  amplitude(s,e){ if(e<=s)e+=1440; return e-s; },
+  roundQH(m){ return Math.ceil(m/15)*15; },
+  minutesNuitOnly(s,e){ if(e<=s)e+=1440; let c=0; for(let i=s;i<e;i++){let x=i%1440; if(x>=this.IndemNuit_Start||x<this.IndemNuit_End)c++;} return c; },
+  calcMinutesNuit(s,e){ return this.roundQH(this.minutesNuitOnly(s,e)); },
+  calcIndemNuitCHF(min){ return min/60*this.IndemNuit_CHF_h; },
+  calcSBNminutes(s,e){ if(e<=s)e+=1440; const early=s<this.SBN_40pct_End; let b=0;
+    for(let i=s;i<e;i++){let x=i%1440;
+      if(x>=this.SBN_10pct_Start)b+=0.10; else if(x<this.SBN_40pct_End)b+=0.40;
+      else if(early&&x>=this.SBN_40pct_End&&x<this.SBN_40pct_EarlyEnd)b+=0.40;} return Math.round(b); },
+  calcSBNchf(s,e){ if(e<=s)e+=1440; const early=s<this.SBN_40pct_End; let chf=0;
+    for(let i=s;i<e;i++){let x=i%1440;
+      if(x>=this.SBN_10pct_Start)chf+=0.10; else if(x<this.SBN_40pct_End)chf+=0.40;
+      else if(early&&x>=this.SBN_40pct_End&&x<this.SBN_40pct_EarlyEnd)chf+=0.40;} return Math.round(chf*100)/100; },
+  isNocturne0h4h(s,e){ if(e<=s)e+=1440; for(let i=s;i<e;i++){let x=i%1440; if(x>=this.NocturneZone_Start&&x<this.NocturneZone_End)return true;} return false; },
+  calcMinutesSam(s,e){ if(e<=s)e+=1440; let c=0; for(let i=s;i<e;i++){let x=i%1440; if(x>=12*60&&x<20*60)c++;} return c; },
+  calcMinutesDim(s,e){ if(e<=s)e+=1440; let c=0; for(let i=s;i<e;i++){let x=i%1440; if(x>=6*60&&x<20*60)c++;} return c; },
+  // féries mobiles NE (Pâques Meeus + Jeûne fédéral)
+  _mob:{},
+  feriesMobiles(y){
+    if(this._mob[y])return this._mob[y];
+    const a=y%19,b=Math.floor(y/100),cc=y%100,d2=Math.floor(b/4),e=b%4,ff=Math.floor((b+8)/25),g=Math.floor((b-ff+1)/3);
+    const h=(19*a+b-d2-g+15)%30,ii=Math.floor(cc/4),k=cc%4,l=(32+2*e+2*ii-h-k)%7,mm=Math.floor((a+11*h+22*l)/451);
+    const mo=Math.floor((h+l-7*mm+114)/31), dy=((h+l-7*mm+114)%31)+1;
+    const paq=new Date(y,mo-1,dy); const set=new Set();
+    const add=dd=>set.add(dd.toDateString());
+    const off=(base,n)=>{const x=new Date(base);x.setDate(x.getDate()+n);return x;};
+    add(off(paq,-2)); add(off(paq,1)); add(off(paq,39)); add(off(paq,50));
+    const sept1=new Date(y,8,1); const dToSun=((0-sept1.getDay())+7)%7; const sun3=off(sept1,dToSun+14);
+    add(sun3); add(off(sun3,1));
+    this._mob[y]=set; return set;
+  },
+  isFerie(d,extra){
+    const mm=String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+    if(this.FeriesFixesNE.has(mm))return true;
+    if(this.feriesMobiles(d.getFullYear()).has(d.toDateString()))return true;
+    if(extra&&extra.some(f=>f.toDateString()===d.toDateString()))return true;
+    return false;
+  },
+  isDimFerie(d,extra){ return d.getDay()===0 || this.isFerie(d,extra); },
+  isSamedi(d){ return d.getDay()===6; },
+  minToHHMM(min){ const sg=min<0?"-":""; const ab=Math.abs(min); return sg+Math.floor(ab/60)+"h"+String(ab%60).padStart(2,"0"); }
+};
+
+/* =====================================================================
+   DONNÉES GANTT   (port de BuiltinGanttData.cs)
+   ===================================================================== */
+function TR(Code,Ampl,TT,SBN,Supp,TRm,Deb,Fin,Coll,CollLoc){
+  return {Code,Ampl,TT,SBN:SBN,Supp,TR:TRm,Deb:Deb||"",Fin:Fin||"",Coll:Coll||"",CollLoc:CollLoc||"",
+    get HasCollation(){return !!this.Coll;},
+    get IsNocturne(){return this.SBN>0;},
+    collationEnFenetre(){ if(!this.Coll)return false; const p=this.Coll.split(":"); if(p.length<2)return false;
+      const t=(+p[0])*60+(+p[1]); return (t>=11*60&&t<13*60)||(t>=18*60&&t<21*60); }
+  };
+}
+const Gantt = {
+  CDF_LuVe:[
+    TR("1201",418,388,40,0,428,"18:13","01:11",""),
+    TR("1202",536,506,16,0,522,"15:13","00:09","19:30","NE"),
+    TR("1203",462,462,0,0,462,"12:14","19:56",""),
+    TR("1204",467,437,0,0,437,"10:13","18:00",""),
+    TR("1205",555,512,0,0,512,"06:19","15:34",""),
+    TR("1206",556,523,0,0,523,"04:20","13:36",""),
+    TR("1207",421,391,35,0,426,"03:33","10:34",""),
+  ],
+  CDF_SaDi:[
+    TR("1251",599,549,41,0,590,"15:13","01:12","19:30"),
+    TR("1252",599,569,20,0,589,"14:21","00:20","18:30"),
+    TR("1253",618,588,0,0,588,"05:19","15:37",""),
+    TR("1254",615,551,0,5,556,"04:55","15:10","12:00"),
+    TR("1255",587,554,31,0,585,"03:43","13:30",""),
+  ],
+  NE_LuVe:[
+    TR("1001",437,437,13,0,450,"16:46","00:03","19:00"),
+    TR("1002",511,454,16,0,470,"15:40","00:11","19:00"),
+    TR("1003",449,449,13,0,462,"16:34","00:03","19:30"),
+    TR("1004",561,531,0,0,531,"12:42","22:03","","CDF"),
+    TR("1005",509,479,0,0,479,"12:34","21:03","18:25","CDF"),
+    TR("1006",501,453,0,0,453,"08:23","16:44","12:00","CDF"),
+    TR("1007",542,512,0,0,512,"05:42","14:44",""),
+    TR("1008",471,441,0,0,441,"05:16","13:07",""),
+    TR("1009",513,456,0,0,456,"04:24","12:57",""),
+    TR("1010",526,487,28,0,515,"03:50","12:36",""),
+    TR("1011",388,388,35,0,423,"03:32","10:00",""),
+    TR("1012",522,465,0,0,465,"04:15","12:57",""),
+    TR("1013",509,474,0,0,474,"12:34","21:03",""),
+  ],
+  NE_SaDi:[
+    TR("1051",535,498,29,0,527,"15:47","00:42","19:30"),
+    TR("1052",570,537,17,0,554,"14:42","00:12","18:30"),
+    TR("1053",474,474,13,0,487,"16:09","00:03",""),
+    TR("1054",653,593,0,0,593,"11:07","22:00",""),
+    TR("1055",616,556,0,0,556,"11:47","22:03",""),
+    TR("1056",610,570,0,0,570,"06:50","17:00","12:00"),
+    TR("1057",577,547,0,0,547,"05:47","15:24",""),
+    TR("1058",594,564,28,0,592,"03:50","13:44",""),
+    TR("1059",465,465,30,0,495,"03:44","11:29",""),
+    TR("1060",465,465,30,0,495,"03:44","11:29",""),
+    TR("1061",577,547,0,0,547,"05:47","15:24",""),
+  ],
+  FLE_LuVe:[
+    TR("1101",524,490,32,0,522,"16:05","00:49","18:45"),
+    TR("1102",549,519,28,0,547,"15:30","00:39","19:00"),
+    TR("1103",548,503,0,0,503,"12:19","21:27",""),
+    TR("1104",509,460,0,0,460,"11:50","20:19",""),
+    TR("1105",488,447,0,0,447,"08:19","16:27",""),
+    TR("1106",485,449,0,0,449,"04:36","12:41",""),
+    TR("1107",456,418,0,0,418,"04:36","12:12",""),
+  ],
+  FLE_SaDi:[
+    TR("1151",504,473,32,0,505,"16:25","00:49","18:30","BIENNE"),
+    TR("1152",536,503,22,0,525,"15:30","00:26","18:30"),
+    TR("1153",588,555,0,0,555,"08:31","18:19","11:00"),
+    TR("1154",576,540,0,0,540,"07:06","16:42","11:30"),
+    TR("1155",501,471,0,0,471,"05:06","13:27",""),
+  ],
+  get(depot){ switch((depot||"").toUpperCase()){
+    case"CDF":return[this.CDF_LuVe,this.CDF_SaDi];
+    case"NE":return[this.NE_LuVe,this.NE_SaDi];
+    case"FLE":return[this.FLE_LuVe,this.FLE_SaDi];
+    default:return[[],[]]; } },
+  getAll(depot){ const[a,b]=this.get(depot); return a.concat(b); },
+  find(depot,code){ const base=code.split("/")[0].trim(); return this.getAll(depot).find(t=>t.Code.toUpperCase()===base.toUpperCase())||null; },
+  getTourDepot(code){ const base=code.split("/")[0].trim(); if(base.length<4||!/\d/.test(base[0]))return null;
+    return ({"10":"NE","11":"FLE","12":"CDF"})[base.slice(0,2)]||null; },
+  findAnyDepot(code,empDepot){ const td=this.getTourDepot(code); if(td){const r=this.find(td,code); if(r)return[r,td];}
+    const r2=this.find(empDepot,code); return[r2,r2?empDepot:"?"]; },
+  getGarePrise(code){ const c=code.split("/")[0].trim(); const n=+c; if(!Number.isInteger(n))return"";
+    return (n>=1201&&n<=1207)?"CDF":"NE"; },
+  getEffectivePrise(code,mech){ const c=code.split("/")[0].trim(); const n=+c; if(!Number.isInteger(n))return"";
+    if(n>=1101&&n<=1155) return (mech||"").toUpperCase()==="NE"?"NE":"FLE";
+    if(n>=1201&&n<=1207) return "CDF";
+    if(n>=1251&&n<=1255) return (mech||"").toUpperCase()==="CDF"?"CDF":"NE";
+    return "NE"; },
+  collationLocation(tr,code){ return tr.CollLoc?tr.CollLoc:this.getGarePrise(code); }
+};
+const DepotCoords = {
+  NE:[46.9637,6.9348,"Neuchâtel Gare"], FLE:[46.8940,6.5467,"Fleurier Gare"], CDF:[47.1033,6.8268,"La Chaux-de-Fonds Gare"],
+  get(c){ return this[(c||"").toUpperCase()]||[0,0,""]; }
+};
+function haversine(la1,lo1,la2,lo2){ const R=6371,dLa=(la2-la1)*Math.PI/180,dLo=(lo2-lo1)*Math.PI/180;
+  const a=Math.sin(dLa/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLo/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)); }
+
+/* OSRM road distance (async) — cache + fallback haversine×1.35 */
+const _kmCache = {};
+async function kmRoundTrip(la1,lo1,la2,lo2){
+  const key=`${la1.toFixed(5)},${lo1.toFixed(5)}|${la2.toFixed(5)},${lo2.toFixed(5)}`;
+  if(_kmCache[key]!=null) return _kmCache[key];
+  let km;
+  try{
+    const url=`https://router.project-osrm.org/route/v1/driving/${lo1.toFixed(6)},${la1.toFixed(6)};${lo2.toFixed(6)},${la2.toFixed(6)}?overview=false`;
+    const r=await fetch(url); const j=await r.json();
+    if(j&&j.routes&&j.routes.length){ km=(j.routes[0].distance/1000)*2; }
+    else km=haversine(la1,lo1,la2,lo2)*1.35*2;
+  }catch(e){ km=haversine(la1,lo1,la2,lo2)*1.35*2; }
+  _kmCache[key]=km; return km;
+}
+
+/* =====================================================================
+   PARSER PDF   (port de AttestationParser.cs via pdf.js)
+   ===================================================================== */
+const PX={ TS:225, INDNUIT:255, SBN:295, PIQUET:345, MALADIE:375, VACANCES:408, RR:440, REMARQUES:480 };
+function isTime(s){ return s.length===5&&s[2]===":"&&+s.slice(0,2)>=0&&+s.slice(0,2)<24&&+s.slice(3)>=0&&+s.slice(3)<60; }
+function parseTimeMin(s){ const p=s.split(":"); return (+p[0])*60+(+p[1]); }
+function tryDate(s){ const m=s.match(/^(\d{2})\.(\d{2})\.(\d{4})$/); if(!m)return null;
+  const d=new Date(+m[3],+m[2]-1,+m[1]); return (d.getDate()==+m[1])?d:null; }
+function pint(s){ const m=String(s).trim().match(/^-?\d+$/); return m?+m[0]:null; }
+function pintS(s){ s=String(s).replace(/[\u2212\u2013]/g,"-"); const m=s.match(/^-?\d+$/); return m?+m[0]:null; }
+function pdouble(s){ const v=parseFloat(String(s).replace(",",".")); return isNaN(v)?null:v; }
+function moisNum(n){ return ({janvier:1,"février":2,fevrier:2,mars:3,avril:4,mai:5,juin:6,juillet:7,"août":8,aout:8,septembre:9,octobre:10,novembre:11,"décembre":12,decembre:12})[(n||"").toLowerCase()]||0; }
+function classify(code){
+  if(!code)return"Unknown"; const up=code.toUpperCase().trim();
+  if(up==="R")return"Repos";
+  if(up.startsWith("RCOMP")||up.startsWith("RCOMTS"))return"Rcomp";
+  if(up.startsWith("REPAS"))return"Repas";
+  if(up==="IND KM"||up==="INDKM")return"IndKm";
+  if(up==="IND R"||up==="INDR")return"IndRepos";
+  if(up.startsWith("IND"))return"IndKm";
+  if(up.startsWith("FORM"))return"Formation";
+  if(up.startsWith("PIQUET"))return"Piquet";
+  if(up.startsWith("SYNDIC"))return"Syndical";
+  if(/\d/.test(code[0]))return"Tour";
+  return"Unknown";
+}
+async function parsePdf(file){
+  const buf=await file.arrayBuffer();
+  const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+  const mois={NomFichier:file.name,Mois:0,Annee:0,NomEmploye:"",Rows:[],
+    TotalTR_Orig:0,TotalDTA_Orig:0,TotalTS_Orig:0,TotalIndNuit_Orig:0,TotalSBN_Orig:0,
+    Solde_DTA_Min:0,Solde_TS_Min:0,Solde_SBN:0,Solde_Repos_j:0,Solde_Vacances_j:0,Solde_JoursRR:0,Solde_Piquet_Min:0};
+  for(let p=1;p<=pdf.numPages;p++){
+    const page=await pdf.getPage(p); const vp=page.getViewport({scale:1}); const H=vp.height;
+    const tc=await page.getTextContent();
+    let words=[];
+    for(const it of tc.items){
+      const t=it.str; if(!t||!t.trim())continue;
+      const x0=it.transform[4], y=H-it.transform[5], x1=x0+(it.width||0);
+      words.push({t,x0,x1,y});
+    }
+    words=mergeFragments(words);
+    const lines=groupLines(words);
+    for(const line of lines){ if(!line.length)continue;
+      const full=line.map(w=>w.t.trim()).join(" ").trim();
+      if(full.startsWith("Mois:")){ const parts=full.replace("Mois:","").trim().split(/\s+/);
+        if(parts.length>=2&&/^\d+$/.test(parts[1])){mois.Annee=+parts[1];mois.Mois=moisNum(parts[0]);} continue; }
+      if(full.startsWith("Nom:")){ mois.NomEmploye=full.replace("Nom:","").trim(); continue; }
+      if(full.startsWith("Total min")){ parseTotal(line,mois); continue; }
+      if(parseSolde(full,mois))continue;
+      const row=parseDataRow(line); if(row)mois.Rows.push(row);
+    }
+  }
+  return mois;
+}
+function mergeFragments(raw){
+  const s=raw.slice().sort((a,b)=>a.y-b.y||a.x0-b.x0); const res=[];
+  for(const w of s){ if(!res.length){res.push({...w});continue;}
+    const prev=res[res.length-1]; const same=Math.abs(w.y-prev.y)<4; const gap=w.x0-prev.x1;
+    if(same&&gap>-3&&gap<2){prev.t+=w.t;prev.x1=w.x1;} else res.push({...w}); }
+  return res;
+}
+function groupLines(words){
+  const s=words.slice().sort((a,b)=>a.y-b.y||a.x0-b.x0); const lines=[]; if(!s.length)return lines;
+  let cur=[s[0]],cy=s[0].y;
+  for(let i=1;i<s.length;i++){ const w=s[i];
+    if(Math.abs(w.y-cy)<=4){ cur.push(w); cy=cur.reduce((a,x)=>a+x.y,0)/cur.length; }
+    else { lines.push(cur.slice().sort((a,b)=>a.x0-b.x0)); cur=[w]; cy=w.y; } }
+  lines.push(cur.slice().sort((a,b)=>a.x0-b.x0)); return lines;
+}
+function parseDataRow(line){
+  if(!line.length)return null; const date=tryDate(line[0].t.trim()); if(!date)return null;
+  const row={Date:date,TourCode:"",Type:"Unknown",Debut:null,Fin:null,TR_Orig:null,DTA_Orig:null,TS_Orig:null,
+    IndNuit_Orig:null,SBN_Orig:null,Piquet_Orig:null,Maladie_Orig:null,Vacances_Orig:null,RR_Orig:null,Remarques:""};
+  if(line.length<2)return row;
+  // Code de tour = tous les mots après la date situés AVANT la colonne Début (x0 < 100).
+  // Permet de distinguer "Ind KM" de "Ind R" (sinon seul "Ind" est conservé → mauvaise classe).
+  let j=1; const codeWords=[];
+  while(j<line.length && line[j].x0<100 && !isTime(line[j].t)){ codeWords.push(line[j].t.trim()); j++; }
+  row.TourCode=codeWords.join(" ").trim()||line[1].t.trim();
+  row.Type=classify(row.TourCode);
+  let idx=j;
+  if(idx<line.length&&isTime(line[idx].t)){ row.Debut=parseTimeMin(line[idx++].t);
+    if(idx<line.length&&isTime(line[idx].t)) row.Fin=parseTimeMin(line[idx++].t); }
+  for(let i=idx;i<line.length;i++){
+    let t=line[i].t.trim().replace(/[\u2212\u2013]/g,"-"); if(!t)continue; const x=line[i].x0;
+    if(x<PX.TS){ if(row.TR_Orig==null&&pint(t)!=null)row.TR_Orig=pint(t);
+      else if(row.DTA_Orig==null&&pintS(t)!=null)row.DTA_Orig=pintS(t); }
+    else if(x<PX.INDNUIT){ if(pint(t)!=null)row.TS_Orig=pint(t); }
+    else if(x<PX.SBN){ if(pint(t)!=null)row.IndNuit_Orig=pint(t); }
+    else if(x<PX.PIQUET){ if(pdouble(t)!=null)row.SBN_Orig=pdouble(t); }
+    else if(x<PX.MALADIE){ if(pdouble(t)!=null)row.Piquet_Orig=pdouble(t); }
+    else if(x<PX.VACANCES){ if(pdouble(t)!=null)row.Maladie_Orig=pdouble(t); }
+    else if(x<PX.RR){ if(pdouble(t)!=null)row.Vacances_Orig=pdouble(t); }
+    else if(x<PX.REMARQUES){ if(pdouble(t)!=null)row.RR_Orig=pdouble(t); }
+    else row.Remarques=(row.Remarques+" "+t).trim();
+  }
+  return row;
+}
+function parseTotal(line,mois){
+  for(const w of line){ let t=w.t.trim().replace(/[\u2212\u2013]/g,"-");
+    if(!t||t==="Total"||t==="min."||t==="Jours")continue; const x=w.x0;
+    if(x<PX.TS){ if(mois.TotalTR_Orig===0&&pint(t)!=null)mois.TotalTR_Orig=pint(t);
+      else if(mois.TotalDTA_Orig===0&&pintS(t)!=null)mois.TotalDTA_Orig=pintS(t);
+      else if(mois.TotalTS_Orig===0&&pint(t)!=null)mois.TotalTS_Orig=pint(t); }
+    else if(x<PX.INDNUIT&&pint(t)!=null)mois.TotalTS_Orig=pint(t);
+    else if(x<PX.SBN&&pint(t)!=null)mois.TotalIndNuit_Orig=pint(t);
+    else if(x<PX.PIQUET&&pdouble(t)!=null)mois.TotalSBN_Orig=pdouble(t);
+  }
+}
+function parseSolde(line,mois){
+  const last=line.split(/\s+/).pop();
+  const di=pint(last), dd=pdouble(last);
+  if(line.startsWith("DTA-Min")&&di!=null){mois.Solde_DTA_Min=di;return true;}
+  if(line.startsWith("TS-Min")&&di!=null){mois.Solde_TS_Min=di;return true;}
+  if(line.startsWith("SBN")&&di!=null){mois.Solde_SBN=di;return true;}
+  if(line.startsWith("Repos j.")&&dd!=null){mois.Solde_Repos_j=Math.round(dd);return true;}
+  if(line.startsWith("Vacances j.")&&dd!=null){mois.Solde_Vacances_j=dd;return true;}
+  if((line.startsWith("Jours RR")||line.startsWith("CO j."))&&dd!=null){mois.Solde_JoursRR=dd;return true;}
+  if(line.startsWith("Piquet-Min")&&di!=null){mois.Solde_Piquet_Min=di;return true;}
+  return false;
+}
+
+/* =====================================================================
+   MOTEUR DE CORRECTION   (port de CorrectionEngine.cs)
+   ===================================================================== */
+function C_def(champ,sev,o,c,art,ex){ return {Champ:champ,Severite:sev,ValOrig:o,ValCorr:c,Article:art,Explication:ex,IsAvantageux:false}; }
+function C_av(champ,sev,o,c,art,ex){ return {Champ:champ,Severite:sev,ValOrig:o,ValCorr:c,Article:art,Explication:ex,IsAvantageux:true}; }
+const SEVMAX=(arr)=>arr.length?arr.reduce((m,x)=>Math.max(m,SEVRANK(x.Severite)),0):0;
+const SEVRANK=s=>({OK:0,Info:1,Attention:2,Erreur:3})[s];
+const SEVNAME=n=>["OK","Info","Attention","Erreur"][n];
+function sgn(n){ return (n>0?"+":"")+n; }
+
+function analyser(mois,profile,kmAR /* {NE,FLE,CDF} A/R from domicile, or null */, extraFeries){
+  mois.Corrigees=[];
+  const rows=mois.Rows.slice().sort((a,b)=>(a.Date-b.Date)||((a.Debut??0)-(b.Debut??0)));
+  // prev day type
+  const rank=t=>({Tour:6,Formation:5,Rcomp:4,Syndical:3,Repos:2,IndKm:0,IndRepos:0,Repas:0})[t]??1;
+  const best={}; for(const r of rows){ if(!r.Date)continue; const k=r.Date.toDateString();
+    if(!(k in best)||rank(r.Type)>rank(best[k]))best[k]=r.Type; }
+  const prevType={}; for(const k in best){ /* by date */ }
+  for(const r of rows){ if(!r.Date)continue; const v=new Date(r.Date); v.setDate(v.getDate()-1);
+    if(v.toDateString() in best) prevType[r.Date.toDateString()]=best[v.toDateString()]; }
+
+  let prevTour=null;
+  for(const row of rows){
+    const calc={Original:row,Corrections:[],TR_Calc:null,MinNuit_Calc:null,IndemNuit_CHF:null,
+      MinDim_Calc:null,MinSam_Calc:null,SBN_Min_Calc:null,SBN_CHF_Calc:null,Amplitude_Calc:null,
+      IsNocturne:false,IsDimOuFerie:false,IsSamedi:false,ReposAvant_Min:null,
+      PrevDayType:prevType[row.Date?row.Date.toDateString():""]||null};
+    switch(row.Type){
+      case"Tour": case"Formation": analyserTour(calc,prevTour,profile,mois,kmAR,extraFeries); prevTour=row; break;
+      case"Rcomp": analyserRcomp(calc); break;
+      case"Repas": calc.Corrections.push(C_av("Indemnité repas","Info","présent","CHF "+Cct.IndemRepas.toFixed(2),"CCT Annexe 3 §2.8","Indemnité repas de CHF "+Cct.IndemRepas.toFixed(2)+". Applicable si pause entre 11h-13h ou 18h-21h, hors lieu de service, sur ordre de l'employeur.")); break;
+      case"IndKm": calc.Corrections.push(C_av("Indemnité km / repos","Info","présent","CHF "+Cct.IndemKm.toFixed(2)+"/km ou CHF "+Cct.IndemReposSupp.toFixed(2),"CCT Annexe 3 §2.6/2.9","Indemnité véhicule privé (CHF 0.70/km) ou suppression de repos régulier (CHF 26.-, ou 52.- dim/fériés).")); break;
+      case"IndRepos": calc.Corrections.push(C_av("Suppression repos régulier","Info","présent","CHF "+Cct.IndemReposSupp.toFixed(2),"CCT Annexe 3 §2.6","Indemnité pour suppression d'un R/RC planifié: CHF 26.- en semaine, CHF 52.- si dim./férié.")); break;
+    }
+    mois.Corrigees.push(calc);
+  }
+  analyserPeriode(mois);
+  return mois;
+}
+
+function analyserTour(calc,prev,profile,mois,kmAR,extraFeries){
+  const row=calc.Original; const C=calc.Corrections;
+  if(row.Debut==null||row.Fin==null||row.Date==null){
+    C.push(C_def("Données manquantes","Erreur","absent","Début/Fin requis","CCT Annexe 4","Tour de service sans horaire — données manquantes dans l'attestation.")); return; }
+  const s=row.Debut,e=row.Fin,date=row.Date;
+  if(row.Piquet_Orig!=null&&row.Piquet_Orig>0)
+    C.push(C_def("Piquet inattendu","Attention",row.Piquet_Orig.toFixed(2),"0 (mécaniciens VN: pas de piquet)","CCT transN — Mécaniciens VN","Les mécaniciens VN ne sont pas soumis au service de piquet. Valeur anormale — vérifier avec les RH transN."));
+  const amp=Cct.amplitude(s,e); calc.Amplitude_Calc=amp; calc.TR_Calc=amp;
+  const sbnMin=Cct.calcSBNminutes(s,e);
+  calc.IsDimOuFerie=Cct.isDimFerie(date,extraFeries);
+  calc.IsSamedi=Cct.isSamedi(date)&&!calc.IsDimOuFerie;
+
+  // Indemnité nuit 20h-6h
+  const minNuit=Cct.calcMinutesNuit(s,e); calc.MinNuit_Calc=minNuit; calc.IndemNuit_CHF=Cct.calcIndemNuitCHF(minNuit);
+  if(row.IndNuit_Orig!=null&&!calc.IsDimOuFerie&&!calc.IsSamedi){
+    const diff=row.IndNuit_Orig-minNuit;
+    if(Math.abs(diff)>15){
+      const base=row.TourCode.includes("/")?row.TourCode.slice(0,row.TourCode.indexOf("/")):row.TourCode;
+      const gP=profile?Gantt.findAnyDepot(base,profile.Depot)[0]:null;
+      const pauseMin=gP?gP.Ampl-gP.TT:0; const diffMatches=pauseMin>0&&Math.abs(Math.abs(diff)-pauseMin)<=5;
+      let pauseNoct=false,pTxt="";
+      if(gP&&gP.HasCollation&&pauseMin>0){ const cs=parseTimeMin(gP.Coll),ce=cs+pauseMin; let ov=0;
+        for(let t=cs;t<ce;t++){let x=t%1440; if(x>=Cct.IndemNuit_Start||x<Cct.IndemNuit_End)ov++;} pauseNoct=ov>0;
+        pTxt=" (collation GANTT "+gP.Coll+", pause "+pauseMin+" min)"; }
+      else if(pauseMin>0) pTxt=" (pause GANTT "+pauseMin+" min, horaire non renseigné)";
+      const degrade=diffMatches&&diff<0&&pauseNoct;
+      if(diff<0){
+        if(degrade) C.push({Champ:"Indemnité nuit — pause en zone nocturne",Severite:"Info",IsAvantageux:true,
+          ValOrig:row.IndNuit_Orig.toFixed(1)+" min",ValCorr:minNuit+" min (brut) − pause",Article:"CCT Annexe 3 §2.1",
+          Explication:"IndNuit attestation "+row.IndNuit_Orig.toFixed(1)+" min ; brut 20h-06h (QH↑) "+minNuit+" min. Écart ≈ pause GANTT "+pauseMin+" min"+pTxt+", qui chevauche la zone nocturne : non rémunérée en indemnité nuit, écart normal."});
+        else if(diffMatches) C.push(C_def("Indemnité nuit < calcul 20h-6h (à vérifier)",diff<-30?"Erreur":"Attention",
+          row.IndNuit_Orig.toFixed(1)+" min",minNuit+" min (→ "+Cct.calcIndemNuitCHF(minNuit).toFixed(2)+" CHF)","CCT Annexe 3 §2.1",
+          "IndNuit "+row.IndNuit_Orig.toFixed(1)+" min ; brut "+minNuit+" min. Écart = durée pause GANTT ("+pauseMin+" min)"+pTxt+" MAIS hors zone nocturne. Soit la pause réelle du variant tombe après 20h (écart normal), soit sous-paiement d'env. "+(Math.abs(diff)/60*Cct.IndemNuit_CHF_h).toFixed(2)+" CHF. À vérifier."));
+        else C.push(C_def("Indemnité nuit trop basse",diff<-30?"Erreur":"Attention",
+          row.IndNuit_Orig.toFixed(1)+" min",minNuit+" min (→ "+Cct.calcIndemNuitCHF(minNuit).toFixed(2)+" CHF)","CCT Annexe 3 §2.1",
+          "Sous-payé de "+Math.abs(diff).toFixed(1)+" min de service nuit. Calculé "+minNuit+" min (20h-06h, QH↑) = "+Cct.calcIndemNuitCHF(minNuit).toFixed(2)+" CHF. Attestation "+row.IndNuit_Orig.toFixed(1)+" min. Manque "+(Math.abs(diff)/60*Cct.IndemNuit_CHF_h).toFixed(2)+" CHF."));
+      } else C.push(C_av("Indemnité nuit supérieure au calcul","Attention",
+        row.IndNuit_Orig.toFixed(1)+" min",minNuit+" min (calculé)","CCT Annexe 3 §2.1",
+        "L'attestation crédite "+row.IndNuit_Orig.toFixed(1)+" min, soit "+sgn(+diff.toFixed(1))+" min de plus que le calcul. Favorable — arrondi différent ou accord employeur."));
+    }
+  }
+
+  // SBN
+  calc.SBN_Min_Calc=sbnMin; calc.IsNocturne=Cct.isNocturne0h4h(s,e);
+  const sbnChf=Cct.calcSBNchf(s,e); calc.SBN_CHF_Calc=sbnChf; const hasSBN=sbnChf>0;
+  if(row.SBN_Orig!=null){
+    if(!hasSBN&&row.SBN_Orig>0) C.push(C_av("SBN présent sans zone nocturne","Attention",row.SBN_Orig.toFixed(2)+" CHF","0.00 CHF (aucune zone 22h-4h)","OLDT Art. 17, CCT Annexe 3","SBN de "+row.SBN_Orig.toFixed(2)+" CHF crédité mais aucune plage nocturne détectée. Favorable si correct."));
+    else if(hasSBN&&(row.SBN_Orig==null||row.SBN_Orig===0)) C.push(C_def("SBN absent — bonus manquant","Erreur","0.00 CHF (attestation)",sbnChf.toFixed(2)+" CHF calculés","OLDT Art. 17, CCT Annexe 3","Programme calcule "+sbnChf.toFixed(2)+" CHF de SBN. Non crédité — défavorable."));
+    else if(hasSBN&&Math.abs(row.SBN_Orig-sbnChf)>0.05){ const plus=row.SBN_Orig>sbnChf;
+      C.push(plus?C_av("SBN supérieur au calcul","Info",row.SBN_Orig.toFixed(2)+" CHF",sbnChf.toFixed(2)+" CHF calculés","OLDT Art. 17","SBN attestation > calculé. Favorable.")
+        :C_def("SBN sous-calculé","Attention",row.SBN_Orig.toFixed(2)+" CHF",sbnChf.toFixed(2)+" CHF calculés","OLDT Art. 17","SBN attestation < calculé. Manque "+(sbnChf-row.SBN_Orig).toFixed(2)+" CHF.")); }
+  }
+
+  // Référence GANTT
+  if(profile&&profile.Depot){
+    const [gRef,foundDepot]=Gantt.findAnyDepot(row.TourCode,profile.Depot);
+    const baseCode=row.TourCode.split("/")[0].trim();
+
+    // IND KM — CCT Annexe 6 + Annexe 3 §2.9 (km réels, 0.70 CHF/km)
+    // Indemnité = (domicile→prise A/R) − (trajet normal domicile→dépôt A/R), plancher 0.
+    // Source des distances A/R : kmAR (table commune intégrée = conforme/hors-ligne,
+    // ou route OSRM si adresse géocodée). Le plancher à 0 implémente l'exception
+    // Annexe 6 « se rapproche du domicile » sans calcul séparé.
+    const priseEff=Gantt.getEffectivePrise(baseCode,profile.Depot);
+    const crossDepot=!!priseEff&&priseEff.toUpperCase()!==profile.Depot.toUpperCase();
+    const hasIndKm=mois.Rows.some(r=>sameDate(r.Date,row.Date)&&(r.Type==="IndKm"||(r.TourCode&&r.TourCode.trim().toUpperCase().startsWith("IND")&&!["IND R","INDR"].includes(r.TourCode.trim().toUpperCase()))));
+    if(crossDepot){
+      const have=kmAR&&kmAR[priseEff]!=null&&kmAR[profile.Depot]!=null;
+      if(!have){
+        C.push(C_av("Ind KM probable — commune à renseigner","Info","prise "+priseEff+" ≠ dépôt "+profile.Depot,"renseigner la commune (Paramètres)","CCT Annexe 6 + Annexe 3 §2.9","Prise de service à "+priseEff+", différente de votre dépôt "+profile.Depot+" → une indemnité km est probablement due. Renseignez votre commune de domicile dans les Paramètres pour le calcul exact (km × 0.70)."));
+      } else {
+        const net=kmAR[priseEff]-kmAR[profile.Depot]; const srcTxt=kmAR._src||"";
+        const km=net>0?net:0; const chf=km*0.70; const aff="~"+km.toFixed(0)+" km A/R (~"+chf.toFixed(2)+" CHF)";
+        const detail=(profile.DomicileLabel||"domicile")+" → "+priseEff+" "+kmAR[priseEff].toFixed(0)+" km A/R − trajet normal → "+profile.Depot+" "+kmAR[profile.Depot].toFixed(0)+" km A/R = "+km.toFixed(0)+" km"+(srcTxt?" ["+srcTxt+"]":"");
+        if(km<=0){
+          if(hasIndKm) C.push(C_av("Ind KM — prise proche du domicile","Info","présent","vérifier le bien-fondé","CCT Annexe 6",detail+". La prise n'est pas plus loin de chez vous que votre dépôt → en principe pas d'indemnité km. Une indemnité figure pourtant (km réels déclarés ?). Favorable, à vérifier."));
+        } else if(!hasIndKm){
+          C.push(C_def("IND KM MANQUANT","Erreur","absent",aff,"CCT Annexe 6 + Annexe 3 §2.9","Prise de service à "+priseEff+" — lieu de travail contractuel "+profile.Depot+". Indemnité = "+detail+" → ~"+chf.toFixed(2)+" CHF (0.70 CHF/km). Absente de l'attestation — à déclarer en km."));
+        } else {
+          C.push(C_av("Ind KM présent","Info",aff,aff,"CCT Annexe 6 + Annexe 3 §2.9","Prise de service à "+priseEff+" (lieu de travail : "+profile.Depot+"). Estimation : "+detail+" → ~"+chf.toFixed(2)+" CHF. L'attestation indique les km réels déclarés ; montant = km × 0.70."));
+        }
+      }
+    } else if(hasIndKm){
+      C.push(C_av("Ind KM présent (prise = dépôt)","Info","présent","à vérifier","CCT Annexe 6","La prise de service ("+priseEff+") correspond à votre dépôt — normalement pas d'indemnité km. Une indemnité figure pourtant sur l'attestation (km réels déclarés, ou prise effective différente ?). Favorable, à vérifier."));
+    }
+
+    // REPAS (v2.18 : vraie pause >= 30)
+    if(gRef){
+      const collLoc=Gantt.collationLocation(gRef,baseCode);
+      const collAilleurs=!!collLoc&&collLoc.toUpperCase()!==profile.Depot.toUpperCase();
+      const collFenetre=gRef.HasCollation&&gRef.collationEnFenetre();
+      const pauseReelle=gRef.Ampl-gRef.TT; const vraiePause=pauseReelle>=30;
+      if(collAilleurs&&collFenetre&&vraiePause){
+        const collTxt=gRef.HasCollation?(" à "+gRef.Coll+" (pause "+pauseReelle+" min)"):"";
+        const hasRepas=mois.Rows.some(r=>sameDate(r.Date,row.Date)&&r.TourCode&&r.TourCode.trim().toUpperCase().startsWith("REPAS"));
+        if(!hasRepas) C.push(C_def("REPAS MANQUANT","Erreur","absent",Cct.IndemRepas.toFixed(2)+" CHF","CCT Annexe 3 §2.8","Collation"+collTxt+" à "+collLoc+" (hors de votre dépôt "+profile.Depot+") dans la fenêtre de repas (11h-13h ou 18h-21h). Conditions §2.8 remplies : pause hors lieu usuel, changement ordonné. Indemnité de "+Cct.IndemRepas.toFixed(2)+" CHF absente de l'attestation."));
+        else C.push(C_av("Repas présent","Info",Cct.IndemRepas.toFixed(2)+" CHF",Cct.IndemRepas.toFixed(2)+" CHF","CCT Annexe 3 §2.8","Collation"+collTxt+" à "+collLoc+" en fenêtre repas — indemnité "+Cct.IndemRepas.toFixed(2)+" CHF correctement présente."));
+      }
+    }
+
+    // Variant ou base TR/TS/DTA
+    const isVariant=row.TourCode.includes("/");
+    if(gRef){
+      calc.TR_Calc=isVariant?(row.TR_Orig??gRef.TR):gRef.TR;
+      if(isVariant&&row.Debut!=null&&row.Fin!=null&&row.TR_Orig!=null){
+        const ampReel=Cct.amplitude(row.Debut,row.Fin); const sbnReel=Cct.calcSBNminutes(row.Debut,row.Fin);
+        const dAmp=ampReel-gRef.Ampl,dSbn=sbnReel-gRef.SBN;
+        const trAtt=gRef.TR+dAmp+dSbn, tsAtt=Math.max(0,dAmp), dtaAtt=gRef.TT-410;
+        const dir=dAmp>0?("+"+dAmp+" min de plus que "+baseCode):dAmp<0?(dAmp+" min de moins que "+baseCode):("même amplitude que "+baseCode);
+        C.push({Champ:"Tour variant",Severite:"Info",IsAvantageux:false,ValOrig:row.TourCode,ValCorr:baseCode,Article:"GANTT transN",
+          Explication:"Variant "+row.TourCode+" → base "+baseCode+" ("+dir+"). TR attendu ≈"+trAtt+" min, TS attendu ="+tsAtt+" min, DTA attendu ="+sgn(dtaAtt)+" min (la DTA du variant reste celle du tour base ; le dépassement est comptabilisé en TS)."});
+        const trDiff=row.TR_Orig-trAtt;
+        if(Math.abs(trDiff)>5) C.push(trDiff<0
+          ?C_def("Variant TR sous-payé","Attention",row.TR_Orig+" min","~"+trAtt+" min attendu","GANTT transN","TR attestation ("+row.TR_Orig+" min) < attendu ("+trAtt+" min). Écart "+Math.abs(trDiff)+" min. Vérifier les horaires exacts du variant.")
+          :C_av("Variant TR supérieur au calcul","Info",row.TR_Orig+" min","~"+trAtt+" min attendu","GANTT transN","TR attestation ("+row.TR_Orig+" min) > attendu ("+trAtt+" min). +"+trDiff+" min en votre faveur."));
+        if(tsAtt>5&&row.TS_Orig!=null&&Math.abs(row.TS_Orig-tsAtt)>5) C.push(row.TS_Orig<tsAtt
+          ?C_def("Variant TS sous-crédité","Attention",row.TS_Orig+" min",tsAtt+" min attendu","OLDT Art. 5","Dépassement de "+dAmp+" min sur "+baseCode+" → TS attendu "+tsAtt+" min. Crédité "+row.TS_Orig+" min. Manque "+(tsAtt-row.TS_Orig)+" min.")
+          :C_av("Variant TS sur-crédité","Info",row.TS_Orig+" min",tsAtt+" min attendu","OLDT Art. 5","TS crédité ("+row.TS_Orig+" min) > attendu ("+tsAtt+" min). Favorable."));
+        if(row.DTA_Orig!=null&&Math.abs(row.DTA_Orig-dtaAtt)>10) C.push(row.DTA_Orig<dtaAtt
+          ?C_def("Variant DTA sous-crédité","Attention",sgn(row.DTA_Orig)+" min",sgn(dtaAtt)+" min attendu","CCT §1.3 / OLDT Art. 5","DTA attestation ("+sgn(row.DTA_Orig)+") < attendu ("+sgn(dtaAtt)+"). Écart "+(row.DTA_Orig-dtaAtt)+" min sur votre solde DTA.")
+          :C_av("Variant DTA supérieur au calcul","Info",sgn(row.DTA_Orig)+" min",sgn(dtaAtt)+" min attendu","CCT §1.3","DTA attestation ("+sgn(row.DTA_Orig)+") > attendu ("+sgn(dtaAtt)+"). Favorable — probablement un formulaire TS+ manuel."));
+      } else if(isVariant){
+        C.push({Champ:"Tour variant",Severite:"Info",IsAvantageux:false,ValOrig:row.TourCode,ValCorr:baseCode,Article:"GANTT transN",Explication:"Variant "+row.TourCode+" → base "+baseCode+". Horaires non disponibles — TR/DTA/TS non vérifiables automatiquement."});
+      }
+      if(!isVariant&&row.DTA_Orig!=null&&row.TR_Orig!=null){
+        const ttG=gRef.TT, ttA=row.TR_Orig-sbnMin, dtaC=ttG-410, tsC=Math.max(0,ttA-ttG), dDiff=row.DTA_Orig-dtaC;
+        if(Math.abs(dDiff)>3) C.push(dDiff>0
+          ?C_av("DTA supérieur au calcul","Info",row.DTA_Orig+" min",dtaC+" min (TT_GANTT "+ttG+" − 410)","CCT §1.7 / OLDT Art. 5","DTA attestation > calculé. +"+dDiff+" min en votre faveur.")
+          :C_def("DTA inférieur au calcul","Attention",row.DTA_Orig+" min",dtaC+" min (TT_GANTT "+ttG+" − 410)","CCT §1.7 / OLDT Art. 5","DTA attestation ("+row.DTA_Orig+") < calculé ("+dtaC+"). Manque "+Math.abs(dDiff)+" min dans votre solde DTA."));
+        if(row.TS_Orig!=null&&Math.abs(row.TS_Orig-tsC)>3) C.push(row.TS_Orig>tsC
+          ?C_av("TS crédité supérieur au calcul","Info",row.TS_Orig+" min",tsC+" min","OLDT Art. 5","TS attestation > calculé. Favorable.")
+          :C_def("TS crédité inférieur au calcul","Attention",row.TS_Orig+" min",tsC+" min","OLDT Art. 5","TS attendu "+tsC+" min. Attestation "+row.TS_Orig+" min. Manque "+(tsC-row.TS_Orig)+" min."));
+      }
+      if(!isVariant&&row.TR_Orig!=null){
+        const diff=row.TR_Orig-gRef.TR,ad=Math.abs(diff);
+        if(ad>5) C.push(diff<0
+          ?C_def("TR inférieur au GANTT — sous-payé",ad>20?"Erreur":"Attention",row.TR_Orig+" min",gRef.TR+" min (GANTT "+profile.Depot+")","GANTT transN "+profile.Depot,"TR ("+row.TR_Orig+" min) inférieur de "+ad+" min au GANTT ("+gRef.TR+" min = TT "+gRef.TT+" + SBN "+gRef.SBN+" + Supp "+gRef.Supp+"). Sous-payé.")
+          :C_av("TR supérieur au GANTT",ad>20?"Attention":"Info",row.TR_Orig+" min",gRef.TR+" min (GANTT "+profile.Depot+")","GANTT transN "+profile.Depot,"TR ("+row.TR_Orig+" min) supérieur de "+ad+" min au GANTT. Favorable — dépassement planifié ou DTA positif."));
+      }
+      if(!isVariant&&gRef.SBN>0&&!hasSBN) C.push(C_def("SBN manquant vs GANTT","Attention","0 min (calcul horaires)",gRef.SBN+" min (GANTT prévu)","GANTT "+profile.Depot+" / OLDT Art. 17","Le GANTT prévoit "+gRef.SBN+" min de SBN. Non détecté — vérifier si le tour a été modifié."));
+      if(!isVariant&&gRef.SBN===0&&hasSBN) C.push(C_av("SBN inattendu vs GANTT","Attention",sbnMin+" min (calculé)","0 min (GANTT référence)","GANTT "+profile.Depot+" / OLDT Art. 17","GANTT SBN=0 mais horaires génèrent "+sbnMin+" min. Favorable si crédité."));
+    } else if(row.Type==="Tour"){
+      const dd=Gantt.getTourDepot(row.TourCode); const vn=dd!=null; let expl,champ,vc;
+      if(vn&&dd!==profile.Depot){ expl="Le code "+row.TourCode+" appartient au dépôt "+dd+". Variant non répertorié — tour cross-dépôt valide.";champ="Tour non répertorié dans le GANTT";vc="Variant GANTT inconnu"; }
+      else if(vn){ expl="Code "+row.TourCode+" : variant non répertorié dans le GANTT VN intégré.";champ="Tour non répertorié dans le GANTT";vc="Variant GANTT inconnu"; }
+      else { expl="Code "+row.TourCode+" hors format voie normale (BUS, VE, spécial, formation…). Valeurs reprises telles quelles ; seules les règles LDT/OLDT/CCT indépendantes du GANTT sont vérifiées.";champ="Tour hors voie normale (autre domaine)";vc="Pas de GANTT VN applicable"; }
+      C.push({Champ:champ,Severite:"Info",IsAvantageux:false,ValOrig:row.TourCode,ValCorr:vc,Article:"GANTT transN",Explication:expl});
+    }
+  }
+
+  // TR vs norme (sans GANTT)
+  const ganttFound=profile&&profile.Depot&&Gantt.find(profile.Depot,row.TourCode)!=null;
+  const vnCode=!!row.TourCode&&Gantt.getTourDepot(row.TourCode)!=null;
+  const trTs=(row.TR_Orig||0)+(row.TS_Orig||0);
+  if(!ganttFound&&vnCode&&row.TR_Orig!=null&&trTs<Cct.Norme_Journaliere)
+    C.push(C_def("TR < norme journalière","Info",row.TR_Orig+" min"+(row.TS_Orig!=null?" (+TS "+row.TS_Orig+" min)":""),"Norme "+Cct.Norme_Journaliere+" min (8h00)","CCT Annexe 4","TR de "+row.TR_Orig+" min inférieur à la norme de "+Cct.Norme_Journaliere+" min. Aucune référence GANTT — vérifier manuellement."));
+
+  // Dim/fériés
+  if(calc.IsDimOuFerie){ const minDim=Cct.calcMinutesDim(s,e); calc.MinDim_Calc=minDim;
+    if(minDim>0){ const due=minDim/60*Cct.IndemDim_CHF_h; const vide=row.IndNuit_Orig==null||row.IndNuit_Orig===0;
+      if(vide) C.push(C_def("Indemnité dim./fériés manquante","Erreur","0 min (colonne vide)",minDim+" min → "+due.toFixed(2)+" CHF","CCT Annexe 3 §2.2","Service un "+(date.getDay()===0?"dimanche":"jour férié NE")+". Zone 06h-20h: "+minDim+" min = "+due.toFixed(2)+" CHF. Indemnité absente — réclamation à faire.")); } }
+  // Samedi
+  if(calc.IsSamedi){ const minSam=Cct.calcMinutesSam(s,e); calc.MinSam_Calc=minSam;
+    if(minSam>0){ const due=minSam/60*Cct.IndemSam_CHF_h; const vide=row.IndNuit_Orig==null||row.IndNuit_Orig===0;
+      if(vide) C.push(C_def("Indemnité samedi manquante","Erreur","0 min (colonne vide)",minSam+" min → "+due.toFixed(2)+" CHF","CCT Annexe 3 §2.3","Service le samedi 12h-20h: "+minSam+" min = "+due.toFixed(2)+" CHF. Indemnité absente — réclamation à faire.")); } }
+
+  // Repos avant ce tour (LDT Art. 8) — mode hors rotation = alertes de base
+  if(prev&&prev.Date&&prev.Fin!=null&&prev.Debut!=null&&row.Date&&row.Debut!=null){
+    let prevFin=new Date(prev.Date); prevFin=addMin(prevFin,prev.Fin); if(prev.Fin<prev.Debut)prevFin.setDate(prevFin.getDate()+1);
+    let cur=addMin(new Date(row.Date),row.Debut);
+    const reposMin=Math.round((cur-prevFin)/60000); calc.ReposAvant_Min=reposMin;
+    if(reposMin<0) C.push(C_def("Chevauchement de services","Erreur","Chevauchement de "+Math.abs(reposMin)+" min","Aucun chevauchement","LDT Art. 8 al. 2, OLDT Art. 22","Deux services se chevauchent — vérifier dates et horaires."));
+    else if(reposMin<Cct.Repos_ForceMajeure) C.push(C_def("Repos < 8h — ILLÉGAL","Erreur",Cct.minToHHMM(reposMin),"≥ 9h (convention) · cible 12h","LDT Art. 8, OLDT Art. 18","Repos de "+Cct.minToHHMM(reposMin)+" sous le plancher de 8h (force majeure). Situation illégale — à signaler (SEV)."));
+    else if(reposMin<Cct.Repos_AbsMin) C.push(C_def("Repos 8h–9h — force majeure uniquement","Erreur",Cct.minToHHMM(reposMin),"≥ 9h (convention) · cible 12h","LDT Art. 8, OLDT Art. 18","Repos de "+Cct.minToHHMM(reposMin)+" sous le minimum conventionnel de 9h. Admis qu'en force majeure — sinon à signaler (SEV)."));
+    else if(reposMin<Cct.Repos_Cible){
+      if(reposMin<Cct.Repos_Hebdo) C.push(C_def("Repos réduit 9h–11h — convention requise","Attention",Cct.minToHHMM(reposMin),"Cible ≥ 12h00 · 11h max 1×/sem sinon","LDT Art. 8, OLDT Art. 18 al. 2","Repos de "+Cct.minToHHMM(reposMin)+" (9h-11h). Réduction permise par convention (moyenne ≥12h sur 2 tours suivants). À vérifier — sinon SEV."));
+      else C.push({Champ:"Repos réduit à 11h — réduction hebdomadaire permise",Severite:"Info",IsAvantageux:false,ValOrig:Cct.minToHHMM(reposMin),ValCorr:"Cible ≥ 12h00",Article:"LDT Art. 8","Explication":"Repos de "+Cct.minToHHMM(reposMin)+" (11h-12h). La LDT permet UNE réduction à 11h par semaine."});
+    }
+  }
+
+  // §1.7 — service après jour de repos (hors rotation → alerte informative)
+  if(calc.PrevDayType==="Repos"&&row.Date){
+    C.push({Champ:"Service après jour de REPOS — consentement requis",Severite:"Attention",IsAvantageux:false,
+      ValOrig:"Tour "+row.TourCode,ValCorr:"Accord du collaborateur nécessaire",Article:"CCT Annexe 4 §1.7, LDT Art. 10",
+      Explication:"La veille était un jour de repos (R). Un jour de repos ne peut être remplacé par un service qu'avec votre accord. Selon CCT Annexe 4 §1.7, si communiqué moins de 36h avant minuit, la journée aurait dû rester en RComp. Vérifiez que vous avez consenti — sinon signalez (SEV)."});
+  }
+}
+
+function analyserRcomp(calc){
+  const row=calc.Original,C=calc.Corrections;
+  if(row.TR_Orig!=null&&row.TR_Orig!==Cct.Rcomp_Duree){ const trop=row.TR_Orig>Cct.Rcomp_Duree;
+    C.push(trop?C_av("Rcomp — durée supérieure","Attention",row.TR_Orig+" min",Cct.Rcomp_Duree+" min (standard)","CCT Annexe 4 §1.7","Ce Rcomp crédite "+row.TR_Orig+" min au lieu de "+Cct.Rcomp_Duree+" min standard. Favorable.")
+      :C_def("Rcomp — durée insuffisante","Attention",row.TR_Orig+" min",Cct.Rcomp_Duree+" min (standard)","CCT Annexe 4 §1.7","Ce Rcomp ne crédite que "+row.TR_Orig+" min au lieu de "+Cct.Rcomp_Duree+" min. Défavorable.")); }
+  if(row.DTA_Orig!=null&&row.DTA_Orig!==-Cct.Rcomp_Duree){ const mieux=row.DTA_Orig> -Cct.Rcomp_Duree;
+    C.push(mieux?C_av("Rcomp — DTA moins débité","Attention",row.DTA_Orig+" min","-"+Cct.Rcomp_Duree+" min (standard)","CCT Annexe 4 §1.7","DTA débité de "+row.DTA_Orig+" min au lieu de -"+Cct.Rcomp_Duree+" min. Favorable.")
+      :C_def("Rcomp — DTA trop débité","Attention",row.DTA_Orig+" min","-"+Cct.Rcomp_Duree+" min (standard)","CCT Annexe 4 §1.7","DTA débité de "+row.DTA_Orig+" min au lieu de -"+Cct.Rcomp_Duree+" min. Défavorable.")); }
+}
+
+function analyserPeriode(mois){
+  const tours=mois.Corrigees.filter(c=>c.Original.Type==="Tour"||c.Original.Type==="Formation");
+  const tourOnly=mois.Corrigees.filter(c=>c.Original.Type==="Tour");
+  // 1. nuits nocturnes 15/28j
+  const nbNuits=tourOnly.filter(c=>c.IsNocturne).length;
+  if(nbNuits>Cct.Nuits_Max_28j){ const f=tourOnly[0];
+    f&&f.Corrections.push(C_def("Trop de nuits nocturnes","Erreur",nbNuits+" nuits / mois","≤ "+Cct.Nuits_Max_28j+" nuits / 28 jours","LDT Art. 9 al. 3",nbNuits+" services passant par 00h-04h. Max "+Cct.Nuits_Max_28j+"/28j (LDT Art. 9 al. 3).")); }
+  // moyenne TR
+  if(tours.length>=3){ const tot=tours.reduce((a,r)=>a+(r.TR_Calc??r.Original.TR_Orig??0),0); const avg=tot/tours.length;
+    if(avg<Cct.Norme_Journaliere*0.95){ const last=tourOnly[tourOnly.length-1];
+      last&&last.Corrections.push({Champ:"Moyenne TR journalière basse",Severite:"Info",IsAvantageux:false,ValOrig:avg.toFixed(0)+" min/tour",ValCorr:"Cible ≥ "+Cct.Norme_Journaliere+" min/tour",Article:"CCT Annexe 4 §1.7",Explication:"Moyenne TR "+avg.toFixed(0)+" min/tour sur "+tours.length+" services. Informatif — la moyenne se lisse sur l'année."}); } }
+  // solde DTA
+  if(mois.Solde_DTA_Min>Cct.Solde_Max_Pos){ const last=tourOnly[tourOnly.length-1];
+    last&&last.Corrections.push(C_def("Solde DTA excédentaire — risque de perte","Attention",Cct.minToHHMM(mois.Solde_DTA_Min),"≤ +72h00 (CCT Art. 43)","CCT transN Art. 43","Solde DTA "+Cct.minToHHMM(mois.Solde_DTA_Min)+" dépasse +72h00. Heures au-delà risquent d'être perdues.")); }
+  else if(mois.Solde_DTA_Min<Cct.Solde_Max_Neg){ const last=tourOnly[tourOnly.length-1];
+    last&&last.Corrections.push(C_def("Solde DTA déficitaire","Erreur",Cct.minToHHMM(mois.Solde_DTA_Min),"≥ -41h00 (CCT Art. 43)","CCT transN Art. 43","Solde DTA "+Cct.minToHHMM(mois.Solde_DTA_Min)+" sous -41h00. Contacter RH transN.")); }
+  // 13 jours consécutifs
+  streakCheck(mois,c=>(c.Original.Type==="Tour"||c.Original.Type==="Formation"||c.Original.Type==="Syndical"),c=>(c.Original.Type==="Repos"||c.Original.Type==="Rcomp"),13,
+    (n,a,b)=>C_def("Plus de 13 jours de travail consécutifs — ILLÉGAL","Erreur",n+" jours consécutifs (du "+fmtDM(a)+" au "+fmtDM(b)+")","≤ 13 jours entre 2 jours de repos","OLDT Art. 20 al. 2",n+" jours de service consécutifs. Max 13 (OLDT Art. 20 al. 2) — à signaler (SEV)."));
+  // 7 nuits consécutives
+  streakNight(mois,7,(n,a,b)=>C_def("Plus de 7 nuits consécutives (LDT)","Erreur",n+" nuits consécutives (du "+fmtDM(a)+" au "+fmtDM(b)+")","≤ 7 nuits consécutives","LDT Art. 9 al. 3",n+" services nocturnes consécutifs (00h-04h). Max 7 de suite (LDT)."));
+  // TE > 10h
+  for(const c of tourOnly){ const tr=c.Original.TR_Orig||0,ts=c.Original.TS_Orig||0,sbn=c.SBN_Min_Calc||0;
+    const te=(tr-sbn)+Math.max(0,ts);
+    if(te>Cct.TE_Max_Tour) c.Corrections.push(C_def("Temps effectif > 10h00 (LDT)","Attention",Cct.minToHHMM(te)+" (TR "+tr+" − SBN "+sbn+" + TS "+ts+")","≤ 10h00 en règle générale","LDT Art. 4 al. 3","Temps de travail effectif de "+Cct.minToHHMM(te)+". Max 10h/tour (LDT Art. 4 al. 3) sauf formation/déplacement (+120 min).")); }
+  // Amplitude > 12h / 11h
+  for(const c of tourOnly){ if(c.Amplitude_Calc==null)continue; const a=c.Amplitude_Calc;
+    if(a>Cct.Amplitude_Max) c.Corrections.push(C_def("Amplitude > 12h00 (LDT)","Erreur","Amplitude "+Cct.minToHHMM(a),"≤ 12h00 maximum","LDT Art. 6 al. 1","Amplitude de "+Cct.minToHHMM(a)+" dépasse le maximum légal de 12h00. À signaler (SEV)."));
+    else if(a>Cct.Amplitude_CibleMax) c.Corrections.push({Champ:"Amplitude > 11h00 (cible CCT)",Severite:"Info",IsAvantageux:false,ValOrig:"Amplitude "+Cct.minToHHMM(a),ValCorr:"Cible ≤ 11h00",Article:"CCT Annexe 4 §1.7",Explication:"Amplitude de "+Cct.minToHHMM(a)+". transN vise 90% des tours ≤ 11h00. Toléré."}); }
+  // moyenne tour de repos
+  const repos=tours.filter(c=>c.ReposAvant_Min!=null&&c.ReposAvant_Min>0).map(c=>c.ReposAvant_Min);
+  if(repos.length>=3){ const moy=Math.round(repos.reduce((a,b)=>a+b,0)/repos.length); const last=tourOnly[tourOnly.length-1];
+    if(moy<Cct.Repos_Cible) last&&last.Corrections.push(C_def("Moyenne tour de repos < 12h","Attention",Cct.minToHHMM(moy),"≥ 12h00 (moyenne 28j)","LDT Art. 8, OLDT Art. 18","Moyenne des tours de repos "+Cct.minToHHMM(moy)+" sur "+repos.length+" intervalles. LDT exige ≥12h sur 28j."));
+    else last&&last.Corrections.push({Champ:"Moyenne tour de repos ✓",Severite:"Info",IsAvantageux:true,ValOrig:Cct.minToHHMM(moy),ValCorr:"≥ 12h00 (moyenne 28j)",Article:"LDT Art. 8, OLDT Art. 18",Explication:"Moyenne des tours de repos "+Cct.minToHHMM(moy)+" sur "+repos.length+" intervalles — conforme (≥12h en moyenne sur 28j)."}); }
+  // réductions 9-11h
+  const reduits=tours.filter(c=>c.ReposAvant_Min!=null&&c.ReposAvant_Min>=Cct.Repos_AbsMin&&c.ReposAvant_Min<Cct.Repos_Hebdo).sort((a,b)=>a.Original.Date-b.Original.Date);
+  if(reduits.length>=1){ const liste=reduits.map(c=>fmtDM(c.Original.Date)+" ("+Cct.minToHHMM(c.ReposAvant_Min)+")").join(", ");
+    const last=tourOnly[tourOnly.length-1];
+    last&&last.Corrections.push({Champ:"Repos réduits 9h–11h : "+reduits.length+" sur la période",Severite:"Info",IsAvantageux:false,ValOrig:liste,ValCorr:"Convention requise (OLDT 18.2)",Article:"OLDT Art. 18 al. 2",Explication:reduits.length+" tour(s) de repos entre 9h et 11h : "+liste+". Admis uniquement par convention (moyenne ≥12h sur 2 tours suivants)."}); }
+}
+function streakCheck(mois,isWork,isRest,limit,mk){
+  const byDate=[]; const map={};
+  for(const c of mois.Corrigees){ if(!c.Original.Date)continue; const d=c.Original.Date; const key=+d;
+    const w=isWork(c),r=isRest(c);
+    if(key in map) map[key]=map[key]||w; else if(w)map[key]=true; else if(r)map[key]=false; }
+  const keys=Object.keys(map).map(Number).sort((a,b)=>a-b);
+  let max=0,cur=0,start=null,sMax=null,eMax=null,prev=null;
+  for(const k of keys){ if(prev!=null&&(k-prev)/86400000>1){cur=0;start=null;}
+    if(map[k]){ if(cur===0)start=k; cur++; if(cur>max){max=cur;sMax=start;eMax=k;} } else {cur=0;start=null;} prev=k; }
+  if(max>limit){ const row=mois.Corrigees.find(c=>c.Original.Date&&+c.Original.Date===eMax)||lastTour(mois);
+    row&&row.Corrections.push(mk(max,new Date(sMax),new Date(eMax))); }
+}
+function streakNight(mois,limit,mk){
+  const map={}; for(const c of mois.Corrigees){ if(!c.Original.Date||c.Original.Type!=="Tour")continue; map[+c.Original.Date]=c.IsNocturne; }
+  const keys=Object.keys(map).map(Number).sort((a,b)=>a-b);
+  let max=0,cur=0,start=null,sMax=null,eMax=null,prev=null;
+  for(const k of keys){ if(prev!=null&&(k-prev)/86400000>1){cur=0;start=null;}
+    if(map[k]){ if(cur===0)start=k; cur++; if(cur>max){max=cur;sMax=start;eMax=k;} } else {cur=0;start=null;} prev=k; }
+  if(max>limit){ const row=mois.Corrigees.find(c=>c.Original.Date&&+c.Original.Date===eMax)||lastTour(mois);
+    row&&row.Corrections.push(mk(max,new Date(sMax),new Date(eMax))); }
+}
+function lastTour(m){ for(let i=m.Corrigees.length-1;i>=0;i--)if(m.Corrigees[i].Original.Type==="Tour")return m.Corrigees[i]; return null; }
+function sameDate(a,b){ return a&&b&&a.toDateString()===b.toDateString(); }
+function addMin(d,min){ const x=new Date(d); x.setMinutes(x.getMinutes()+min); return x; }
+function fmtDM(d){ return String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0"); }
+function fmtHM(min){ if(min==null)return"—"; return String(Math.floor(min/60)).padStart(2,"0")+":"+String(min%60).padStart(2,"0"); }
+
+/* =====================================================================
+   UI
+   ===================================================================== */
+let SETTINGS=loadSettings(), CURRENT=null, KM=null;
+const $=id=>document.getElementById(id);
+
+function loadSettings(){
+  try{ const s=JSON.parse(localStorage.getItem("transncheck_settings")||"null");
+    if(s)return s; }catch(e){}
+  return {Depot:"",Mode:"hors_rotation",EmployeNom:"",Domicile:"",DomicileLat:null,DomicileLng:null,DomicileLabel:""};
+}
+function saveSettings(){ localStorage.setItem("transncheck_settings",JSON.stringify(SETTINGS)); }
+function depotLabel(d){ return ({CDF:"La Chaux-de-Fonds",NE:"Neuchâtel",FLE:"Fleurier"})[d]||d||"?"; }
+function refreshProfile(){
+  $("profile").innerHTML = SETTINGS.Depot
+    ? `Dépôt <b>${depotLabel(SETTINGS.Depot)}</b> · <b>${SETTINGS.Mode==="en_rotation"?"En rotation":"Hors rotation"}</b>` + (SETTINGS.DomicileLabel?` · 📍 ${SETTINGS.DomicileLabel}`:" · 📍 adresse non définie")
+    : `<span style="color:var(--amber)">⚠ Configurez votre dépôt (Paramètres)</span>`;
+}
+
+/* commune dropdown */
+const COMMUNES=["Neuchâtel","Peseux","Corcelles-Cormondrèche","Auvernier","Colombier","Boudry","Bôle","Cortaillod","Bevaix","Gorgier","Saint-Aubin-Sauges","Hauterive","Saint-Blaise","Marin-Epagnier","Cornaux","Cressier","Le Landeron","Cernier","Fontaines","Dombresson","Les Hauts-Geneveys","Valangin","Chézard-Saint-Martin","Fleurier","Couvet","Môtiers","Travers","Noiraigue","Les Verrières","Buttes","Saint-Sulpice","La Côte-aux-Fées","La Chaux-de-Fonds","Le Locle","Les Brenets","La Sagne","Les Ponts-de-Martel","La Brévine"];
+const COMMUNE_GPS={ "Neuchâtel":[46.9925,6.9311],"La Chaux-de-Fonds":[47.1037,6.8265],"Le Locle":[47.0560,6.7470],"Fleurier":[46.8980,6.5480],"Couvet":[46.9230,6.6300],"Peseux":[46.9920,6.8870],"Boudry":[46.9490,6.8390],"Cortaillod":[46.9410,6.8470],"Bevaix":[46.9300,6.8000],"Colombier":[46.9690,6.8650],"Marin-Epagnier":[47.0130,6.9720],"Saint-Blaise":[47.0140,6.9850],"Le Landeron":[47.0560,7.0700],"Cernier":[47.0590,6.8970],"Cressier":[47.0490,7.0420],"Travers":[46.9360,6.6080],"Les Verrières":[46.9020,6.4720],"Noiraigue":[46.9590,6.7150] };
+// Distances routières aller-simple (km) commune → [NE, FLE, CDF] — table validée du programme (BuiltinGanttData).
+// Ind KM A/R = table[commune][prise]×2 − table[commune][dépôt]×2 (plancher 0) × 0.70 CHF/km. Hors-ligne, conforme.
+const DOMICILE_TABLE_RAW={
+  "Neuchâtel":[1,26,22],"Peseux":[3,24,24],"Corcelles-Cormondrèche":[4,23,23],"Auvernier":[4,22,25],
+  "Colombier":[6,20,26],"Boudry":[8,18,27],"Bôle":[8,18,27],"Cortaillod":[9,19,28],"Bevaix":[12,15,29],
+  "Gorgier":[14,13,32],"Saint-Aubin-Sauges":[15,12,33],"Hauterive":[4,28,23],"Saint-Blaise":[6,30,22],
+  "Marin-Epagnier":[9,33,24],"Cornaux":[12,36,26],"Cressier":[14,38,28],"Le Landeron":[18,42,32],
+  "Cernier":[12,30,13],"Fontaines":[13,31,14],"Dombresson":[15,33,11],"Les Hauts-Geneveys":[14,32,10],
+  "Valangin":[7,27,17],"Chézard-Saint-Martin":[14,32,12],"Fleurier":[26,1,38],"Couvet":[24,3,36],
+  "Môtiers":[25,2,37],"Travers":[22,5,34],"Noiraigue":[17,11,29],"Les Verrières":[33,9,45],
+  "Buttes":[30,4,42],"Saint-Sulpice":[28,3,40],"La Côte-aux-Fées":[34,11,46],"La Chaux-de-Fonds":[22,38,1],
+  "Le Locle":[29,40,7],"Les Brenets":[34,45,13],"La Sagne":[24,35,11],"Les Ponts-de-Martel":[24,30,11],"La Brévine":[34,30,20]
+};
+function normCommune(s){ if(!s)return""; return s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]/g,""); }
+const DOMICILE_TABLE={}; for(const k in DOMICILE_TABLE_RAW) DOMICILE_TABLE[normCommune(k)]=DOMICILE_TABLE_RAW[k];
+
+function openSettings(){
+  $("setNom").value=SETTINGS.EmployeNom||"";
+  $("setAddr").value=SETTINGS.Domicile?"":(SETTINGS.DomicileLabel||"");
+  document.querySelectorAll("#depotSeg button").forEach(b=>b.classList.toggle("on",b.dataset.d===SETTINGS.Depot));
+  document.querySelectorAll("#modeSeg button").forEach(b=>b.classList.toggle("on",b.dataset.m===SETTINGS.Mode));
+  const sel=$("setCommune"); if(sel.options.length<=1){ COMMUNES.forEach(c=>{const o=document.createElement("option");o.value=c;o.textContent=c;sel.appendChild(o);}); }
+  sel.value=SETTINGS.Domicile||"";
+  updateGpsLine(); $("setErr").textContent="";
+  $("settingsModal").classList.add("show");
+}
+function updateGpsLine(){
+  const g=$("gpsLine");
+  if(SETTINGS.Domicile){ g.className="gpsline ok"; g.textContent="Commune : "+SETTINGS.Domicile+" — km calculés via la table intégrée (conforme, hors-ligne)."; }
+  else if(SETTINGS.DomicileLat!=null){ g.className="gpsline ok"; g.textContent="Position GPS : "+SETTINGS.DomicileLat.toFixed(5)+", "+SETTINGS.DomicileLng.toFixed(5)+(SETTINGS.DomicileLabel?(" — "+SETTINGS.DomicileLabel):""); }
+  else{ g.className="gpsline"; g.textContent="Position GPS : non définie — choisissez une commune pour le calcul des km."; }
+}
+$("depotSeg").onclick=e=>{ if(e.target.dataset.d){ SETTINGS.Depot=e.target.dataset.d; document.querySelectorAll("#depotSeg button").forEach(b=>b.classList.toggle("on",b===e.target)); } };
+$("modeSeg").onclick=e=>{ if(e.target.dataset.m){ SETTINGS.Mode=e.target.dataset.m; document.querySelectorAll("#modeSeg button").forEach(b=>b.classList.toggle("on",b===e.target)); } };
+$("setCommune").onchange=e=>{ const c=e.target.value; SETTINGS.Domicile=c;
+  if(c&&COMMUNE_GPS[c]){ SETTINGS.DomicileLat=COMMUNE_GPS[c][0]; SETTINGS.DomicileLng=COMMUNE_GPS[c][1]; }
+  SETTINGS.DomicileLabel=c; if(c)$("setErr").textContent=""; updateGpsLine(); };
+$("btnGeocode").onclick=async()=>{
+  const addr=$("setAddr").value.trim(); if(!addr){ $("setErr").textContent="Entrez une adresse d'abord."; return; }
+  if(location.protocol==="file:"){ $("setErr").textContent="En local (fichier ouvert directement), le navigateur bloque le géocodage. Choisissez une commune ci-dessus, ou utilisez la version hébergée (GitHub Pages)."; return; }
+  $("setErr").textContent=""; $("gpsLine").innerHTML='<span class="spin"></span> Localisation…';
+  try{
+    const url="https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ch&addressdetails=0&q="+encodeURIComponent(addr);
+    const r=await fetch(url,{headers:{"Accept":"application/json"}});
+    if(!r.ok)throw new Error("HTTP "+r.status);
+    const j=await r.json();
+    if(j&&j.length){ SETTINGS.DomicileLat=parseFloat(j[0].lat); SETTINGS.DomicileLng=parseFloat(j[0].lon);
+      SETTINGS.DomicileLabel=addr; SETTINGS.Domicile=""; $("setCommune").value=""; updateGpsLine(); }
+    else { $("gpsLine").textContent="Adresse introuvable"; $("setErr").textContent="Adresse non trouvée — précisez (rue, NPA, localité) ou choisissez une commune."; }
+  }catch(e){ $("gpsLine").textContent="Géocodage indisponible"; $("setErr").textContent="Géocodage indisponible ("+(e.message||e)+"). Choisissez simplement votre commune dans la liste — c'est suffisant et conforme."; }
+};
+$("btnSaveSet").onclick=()=>{
+  if(!SETTINGS.Depot){ $("setErr").textContent="Choisissez votre dépôt."; return; }
+  SETTINGS.EmployeNom=$("setNom").value.trim();
+  if(SETTINGS.Domicile){ SETTINGS.DomicileLabel=SETTINGS.Domicile; }
+  else if($("setAddr").value.trim()){ SETTINGS.DomicileLabel=$("setAddr").value.trim(); }
+  saveSettings(); refreshProfile(); $("settingsModal").classList.remove("show");
+  if(CURRENT) runAnalysis(); // re-run with new profile
+};
+$("btnCancelSet").onclick=()=>{ SETTINGS=loadSettings(); $("settingsModal").classList.remove("show"); };
+$("btnSettings").onclick=openSettings;
+document.addEventListener("keydown",e=>{ if(e.key==="F2"){e.preventDefault();openSettings();} });
+
+/* file open + drag/drop */
+$("btnOpen").onclick=()=>$("file").click();
+$("file").onchange=e=>{ if(e.target.files[0]) loadFile(e.target.files[0]); };
+const drop=$("drop");
+["dragover","dragenter"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.style.background="#10243e";}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.style.background="";}));
+drop.addEventListener("drop",e=>{ const f=e.dataTransfer.files[0]; if(f&&f.type==="application/pdf")loadFile(f); });
+$("onlyIssues").onchange=()=>renderTable();
+
+async function loadFile(file){
+  $("fileName").textContent=file.name;
+  $("empty").innerHTML='<div class="big"><span class="spin" style="width:34px;height:34px;border-width:4px"></span></div><div>Lecture du PDF…</div>';
+  $("grid").style.display="none"; $("empty").style.display="flex";
+  try{
+    CURRENT=await parsePdf(file);
+    if(!CURRENT.Rows.length){ $("empty").innerHTML='<div class="big">⚠️</div><div>Aucune ligne reconnue dans ce PDF.</div><div class="hint">Est-ce bien une attestation de temps de travail transN ? Le format doit correspondre.</div>'; return; }
+    await runAnalysis();
+  }catch(err){ console.error(err); $("empty").innerHTML='<div class="big">❌</div><div>Erreur de lecture du PDF.</div><div class="hint">'+(err.message||err)+'</div>'; }
+}
+
+async function resolveKM(){
+  // 1) Commune choisie → table intégrée (conforme, hors-ligne, fiable)
+  if(SETTINGS.Domicile){ const k=normCommune(SETTINGS.Domicile);
+    if(DOMICILE_TABLE[k]){ const [ne,fle,cdf]=DOMICILE_TABLE[k];
+      return {NE:ne*2,FLE:fle*2,CDF:cdf*2,_src:"table commune "+SETTINGS.Domicile}; } }
+  // 2) Adresse géocodée (GPS) + en ligne → route OSRM ; sinon repli vol d'oiseau ×1.35
+  if(SETTINGS.DomicileLat!=null&&SETTINGS.DomicileLng!=null){
+    const km={}; let osrmOk=true;
+    for(const d of["NE","FLE","CDF"]){ const c=DepotCoords.get(d);
+      const v=await kmRoundTrip(SETTINGS.DomicileLat,SETTINGS.DomicileLng,c[0],c[1]);
+      km[d]=v; if(_kmCache[`${SETTINGS.DomicileLat.toFixed(5)},${SETTINGS.DomicileLng.toFixed(5)}|${c[0].toFixed(5)},${c[1].toFixed(5)}`]==null) osrmOk=false; }
+    km._src=osrmOk?"route OSRM (adresse)":"estimation vol d'oiseau";
+    return km;
+  }
+  return null; // ni commune ni adresse → l'analyse signalera « commune à renseigner »
+}
+async function runAnalysis(){
+  if(!CURRENT)return;
+  KM=await resolveKM();
+  const profile = SETTINGS.Depot ? {Depot:SETTINGS.Depot,Mode:SETTINGS.Mode,EnRotation:SETTINGS.Mode==="en_rotation",
+    Domicile:SETTINGS.Domicile,DomicileLat:SETTINGS.DomicileLat,DomicileLng:SETTINGS.DomicileLng,DomicileLabel:SETTINGS.DomicileLabel||SETTINGS.Domicile} : null;
+  analyser(CURRENT,profile,KM,null);
+  renderTable(); renderCounters();
+  $("detail").innerHTML='<div class="none">Cliquez sur une ligne pour voir le détail.'+(KM?` <br><br><span style="font-size:11px">Distances km : ${KM._src}.</span>`:' <br><br><span style="font-size:11px;color:var(--amber)">⚠ Commune de domicile non renseignée — indemnités km non calculées (Paramètres).</span>')+'</div>';
+}
+
+let SELIDX=-1;
+function renderTable(){
+  const tb=$("rows"); tb.innerHTML="";
+  $("empty").style.display="none"; $("grid").style.display="";
+  const onlyIssues=$("onlyIssues").checked;
+  CURRENT.Corrigees.forEach((c,i)=>{
+    const sev=SEVNAME(SEVMAX(c.Corrections));
+    if(onlyIssues&&(sev==="OK"||sev==="Info"))return;
+    const r=c.Original; const tr=tag=>tag;
+    const t008=document.createElement("tr"); t008.className="row"+(i===SELIDX?" sel":""); t008.dataset.i=i;
+    const corrTxt=c.Corrections.map(x=>{
+      const cls=x.IsAvantageux?"av":(x.Severite==="Info"?"nf":"de");
+      return `<span class="tag ${cls}">${esc(x.Champ)}</span>`; }).join("");
+    t008.innerHTML=`
+      <td>${r.Date?fmtDM(r.Date):""}</td>
+      <td>${esc(r.TourCode)}</td>
+      <td>${fmtHM(r.Debut)}</td>
+      <td>${fmtHM(r.Fin)}</td>
+      <td class="num">${r.TR_Orig??""}</td>
+      <td class="num">${c.TR_Calc!=null&&(r.Type==="Tour"||r.Type==="Formation")?c.TR_Calc:""}</td>
+      <td class="num">${r.IndNuit_Orig??""}</td>
+      <td class="num">${r.SBN_Orig!=null?r.SBN_Orig.toFixed(2):""}</td>
+      <td class="num">${r.DTA_Orig!=null?sgn(r.DTA_Orig):""}</td>
+      <td class="num">${r.TS_Orig??""}</td>
+      <td><span class="st ${sev}">${stIcon(sev)} ${stLabel(sev)}</span></td>
+      <td class="corr">${corrTxt||'<span style="color:#39424f">—</span>'}</td>`;
+    t008.onclick=()=>{ SELIDX=i; document.querySelectorAll("tr.row").forEach(x=>x.classList.remove("sel")); t008.classList.add("sel"); renderDetail(c); };
+    tb.appendChild(t008);
+  });
+}
+function stIcon(s){ return ({OK:"✓",Info:"ⓘ",Attention:"⚠",Erreur:"⊘"})[s]; }
+function stLabel(s){ return ({OK:"Conforme",Info:"INFO",Attention:"ATTENTION",Erreur:"ERREUR"})[s]; }
+function esc(s){ return String(s==null?"":s).replace(/[&<>]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[m])); }
+
+function renderDetail(c){
+  const r=c.Original; const d=$("detail");
+  const dayName=r.Date?["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"][r.Date.getDay()]:"";
+  let html=`<h2>DÉTAILS — CORRECTIONS</h2><div class="day">${r.Date?fmtFull(r.Date):""} — ${esc(r.TourCode)}</div>`;
+  if(r.Debut!=null&&r.Fin!=null){
+    const amp=c.Amplitude_Calc;
+    html+=`<div class="sec"><h3>Service</h3>
+      ${kv("Horaire",fmtHM(r.Debut)+" → "+fmtHM(r.Fin)+(r.Fin<r.Debut?" (+1 j.)":""))}
+      ${amp!=null?kv("Amplitude",Cct.minToHHMM(amp)+" ("+amp+" min)"):""}
+      ${kv("Jour",dayName+(c.IsDimOuFerie?" — dim./férié":c.IsSamedi?" — samedi":""))}
+      ${c.MinNuit_Calc!=null&&c.MinNuit_Calc>0?kv("Indemnité nuit (20h-6h)",c.MinNuit_Calc+" min → "+c.IndemNuit_CHF.toFixed(2)+" CHF"):""}
+      ${c.SBN_Min_Calc!=null&&c.SBN_Min_Calc>0?kv("Bonus SBN",c.SBN_Min_Calc+" min ("+c.SBN_CHF_Calc.toFixed(2)+" CHF — compteur temps)"):""}
+      ${c.ReposAvant_Min!=null?kv("Repos avant ce tour",Cct.minToHHMM(c.ReposAvant_Min)+" ("+c.ReposAvant_Min+" min)"+(c.ReposAvant_Min>=720?" ✓":"")):""}
+    </div>`;
+    // GANTT ref
+    const g=SETTINGS.Depot?Gantt.findAnyDepot(r.TourCode,SETTINGS.Depot)[0]:null;
+    if(g) html+=`<div class="sec"><h3>Référence GANTT ${esc(Gantt.findAnyDepot(r.TourCode,SETTINGS.Depot)[1])}</h3>
+      ${kv("Code base",g.Code)} ${kv("Ampl / TT",g.Ampl+" / "+g.TT+" min")} ${kv("SBN / TR",g.SBN+" / "+g.TR+" min")}
+      ${g.Coll?kv("Collation",g.Coll+" ("+(g.Ampl-g.TT)+" min de pause)"):kv("Pause","aucune (Ampl = TT)")}
+    </div>`;
+  }
+  if(c.Corrections.length){
+    html+=`<div class="sec" style="background:transparent;border:none;padding:0"><h3>Corrections détectées (${c.Corrections.length})</h3>`;
+    for(const x of c.Corrections){
+      const cls=x.IsAvantageux?"av":(x.Severite==="Info"?"nf":"de");
+      const lbl=x.IsAvantageux?"AVANTAGEUX ✓":(x.Severite==="Erreur"?"DÉFAVORABLE ⊘":x.Severite==="Attention"?"À VÉRIFIER ⚠":"INFO ⓘ");
+      html+=`<div class="corritem ${cls}">
+        <div class="ch">[${esc(x.Article)}] ${lbl}</div>
+        <div class="ch" style="font-weight:600">${esc(x.Champ)}</div>
+        <div class="vals">attestation: <span class="o">${esc(x.ValOrig)}</span> → correct: <span class="c">${esc(x.ValCorr)}</span></div>
+        <div class="ex">${esc(x.Explication)}</div>
+      </div>`;
+    }
+    html+=`</div>`;
+  } else html+=`<div class="sec">✓ Aucune anomalie sur cette ligne.</div>`;
+  d.innerHTML=html;
+}
+function kv(k,v){ return `<div class="kv"><span class="kk">${k}</span><span class="vv">${v}</span></div>`; }
+function fmtFull(d){ return String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."+d.getFullYear(); }
+
+function renderCounters(){
+  const m=CURRENT; const cont=$("counters"); cont.style.display="flex";
+  // recalc CHF totals
+  let chfNuit=0,chfDim=0,chfSam=0,nuits=0,errors=0;
+  for(const c of m.Corrigees){
+    if(c.Original.Type==="Tour"){
+      if(c.IsNocturne)nuits++;
+      if(!c.IsDimOuFerie&&!c.IsSamedi&&c.IndemNuit_CHF) chfNuit+=c.IndemNuit_CHF;
+      if(c.IsDimOuFerie&&c.MinDim_Calc) chfDim+=c.MinDim_Calc/60*Cct.IndemDim_CHF_h;
+      if(c.IsSamedi&&c.MinSam_Calc) chfSam+=c.MinSam_Calc/60*Cct.IndemSam_CHF_h;
+    }
+    if(SEVNAME(SEVMAX(c.Corrections))==="Erreur")errors++;
+  }
+  const totalChf=chfNuit+chfDim+chfSam;
+  const box=(k,v,cls="")=>`<div class="cbox ${cls}"><div class="k">${k}</div><div class="v">${v}</div></div>`;
+  cont.innerHTML=
+    box("TR total (attest.)",m.TotalTR_Orig?Cct.minToHHMM(m.TotalTR_Orig):"—")+
+    box("Solde DTA",m.Solde_DTA_Min?Cct.minToHHMM(m.Solde_DTA_Min):"—")+
+    box("Solde TS",m.Solde_TS_Min?(m.Solde_TS_Min+" min"):"—")+
+    box("SBN (bonus)",m.Solde_SBN?(m.Solde_SBN+" min"):"—")+
+    box("Nuits (0h-4h)",nuits)+
+    box("Repos j.",m.Solde_Repos_j||"—")+
+    box("Vacances j.",m.Solde_Vacances_j||"—")+
+    box("Jours RR",m.Solde_JoursRR||"—")+
+    box("Ind. nuit",chfNuit.toFixed(2)+" CHF","chf")+
+    box("Dim./fériés",chfDim.toFixed(2)+" CHF","chf")+
+    box("Samedi",chfSam.toFixed(2)+" CHF","chf")+
+    box("Total indemn.",totalChf.toFixed(2)+" CHF","chf")+
+    box("Erreurs",errors,errors>0?"err":"");
+}
+
+/* ===================== AIDE / FAQ ===================== */
+const HELP=[
+ {grp:"Introduction",items:[
+  {id:"intro",t:"C'est quoi cette page ?",h:`
+<h3>À quoi ça sert ?</h3>
+<p>Cette page vérifie votre <b>attestation mensuelle de temps de travail transN</b> et calcule vos droits selon la loi et la CCT. Elle reproduit le programme TransN Checker, dans le navigateur.</p>
+<ul>
+<li class="ok">✅ Vérifie si votre attestation est correcte</li>
+<li class="ok">✅ Détecte les erreurs (indemnités manquantes, TR incorrect, repos trop court…)</li>
+<li class="ok">✅ Calcule les indemnités nuit / SBN / km / repas</li>
+<li class="ok">✅ Explique vos droits (CCT transN + LDT fédérale)</li>
+</ul>
+<h4>Ce qu'elle ne fait PAS</h4>
+<p>Elle ne se connecte pas à transN et ne modifie rien sur votre salaire. C'est un outil de vérification <b>indépendant</b>. Tout se passe dans votre navigateur — <b>votre PDF ne quitte jamais votre ordinateur</b>.</p>
+<h4>Base légale</h4>
+<table class="r">
+<tr><td>LDT</td><td>RS 822.21 — Loi fédérale sur la durée du travail</td></tr>
+<tr><td>OLDT</td><td>RS 822.211 — Ordonnance d'exécution</td></tr>
+<tr><td>CCT transN</td><td>Annexes 1–11 (surtout 3, 4 et 6)</td></tr>
+<tr><td>GANTT VN</td><td>valides depuis le 14.12.2025</td></tr>
+</table>`},
+  {id:"start",t:"Par où commencer ?",h:`
+<h3>3 étapes</h3>
+<h4>1 — Configurez votre profil (Paramètres / F2)</h4>
+<p>Choisissez votre <b>dépôt</b> (NE, FLE ou CDF) et surtout votre <b>commune de domicile</b> : c'est elle qui permet le calcul des indemnités km, <b>hors-ligne et conforme</b>.</p>
+<h4>2 — Ouvrez votre attestation PDF</h4>
+<p>Glissez le PDF sur la page, ou « Ouvrir un PDF ». Ce doit être l'<b>original transN non modifié</b>.</p>
+<h4>3 — Lisez les résultats</h4>
+<p>La grille affiche chaque jour, avec un <b>statut coloré</b> et la liste des corrections. Cliquez une ligne pour le détail complet des calculs. La bande du bas résume les compteurs et indemnités du mois.</p>
+<div class="note">Le mode « En rotation » (inférence du cycle) n'est pas encore porté : l'analyse tourne en <b>hors-rotation</b> (correct pour la majorité des cas).</div>`}
+ ]},
+ {grp:"Comprendre",items:[
+  {id:"compteurs",t:"Les compteurs (TR, DTA, TS, SBN…)",h:`
+<h3>Les compteurs de temps</h3>
+<p>L'attestation accumule plusieurs compteurs. Voici ce que chacun signifie.</p>
+<h4>1 — TR · Temps Rémunéré (min/jour)</h4>
+<p>Minutes payées ce jour-là. Chaque tour a un TR fixe au GANTT.</p>
+<table class="r"><tr><td>Tour 1002</td><td>TR = 470 min = 7h50</td></tr><tr><td>Rcomp</td><td>TR = 410 min = 6h50 (forfait CCT §1.6)</td></tr><tr><td>R (repos)</td><td>TR = 0</td></tr></table>
+<p>Des heures en plus (TS) augmentent le TR d'autant.</p>
+<h4>2 — DTA · Delta Temps de travail (±min)</h4>
+<p>Écart entre votre temps réel et la norme de 6h50 (410 min).</p>
+<p><span class="ok">DTA positif</span> → travaillé plus de 6h50 → vous accumulez.<br><span class="bad">DTA négatif</span> → travaillé moins → vous prélevez sur votre solde.</p>
+<table class="r"><tr><td>1002 (TT=454)</td><td>454 − 410 = +44 min</td></tr><tr><td>1011 (TT=388)</td><td>388 − 410 = −22 min</td></tr><tr><td>Rcomp</td><td>−410 min</td></tr></table>
+<p><b>Limites (CCT Art. 43) :</b> max <b>+72h</b> (au-delà, transN doit proposer des Rcomp) · min <b>−41h</b> (en-dessous, à signaler).</p>
+<h4>3 — TS · Temps Supplémentaire (min)</h4>
+<p>Minutes faites <b>en plus de l'horaire GANTT</b> de votre tour. ⚠ TS ≠ DTA : le TS mesure le dépassement sur <b>un</b> tour ; le DTA l'écart à la norme 6h50.</p>
+<p class="muted">Ex : tour 1052 (fin 00:12) terminé à 00:45 → TS = 33 min ; TR et DTA augmentent de 33 min.</p>
+<h4>4 — SBN · Supplément Bonification Nuit</h4>
+<p>Récompense les heures nocturnes pénibles. En <b>minutes</b> (compteur annuel) et en <b>CHF</b> (versé ce mois).</p>
+<table class="r"><tr><td>22h–00h</td><td>+10% / min</td></tr><tr><td>00h–04h</td><td>+40% / min</td></tr><tr><td>04h–05h</td><td>+40% (si le tour a débuté avant 04h)</td></tr></table>
+<div class="note g">La page calcule le SBN en CHF <b>sans connaître votre salaire</b> (formule confirmée sur 14 tours réels).</div>
+<h4>5 — Ind.nuit / sam / dim (min → CHF)</h4>
+<table class="r"><tr><td>Lu–Ve (nuit)</td><td>zone 20h–06h, arrondi au ¼h sup. → 5.50 CHF/h</td></tr><tr><td>Samedi</td><td>12h–20h (+20h–06h) → 5.50 CHF/h</td></tr><tr><td>Dim / fériés NE</td><td>06h–20h (+20h–06h) → 5.50 CHF/h</td></tr></table>
+<p>Les fériés neuchâtelois sont détectés automatiquement.</p>
+<h4>6 — Repos j. (jours, annuel)</h4>
+<p>Jours de repos accordés depuis le 1ᵉʳ janvier (cible ≈ 64 j, CCT Annexe 4). Valeur reprise de l'état des soldes de l'attestation.</p>
+<h4>7 — Vacances j. / Jours RR</h4>
+<p>Vacances consommées et repos compensatoires accordés depuis janvier.</p>
+<h4>Colonne « TR GANTT » de la page</h4>
+<p>La page recalcule le TR de chaque tour : <b>priorité au GANTT officiel</b> ; si tour inconnu ou variant /1, le TR du PDF est repris tel quel. Un écart entre votre TR et le TR GANTT = anomalie à vérifier.</p>`},
+  {id:"indemnites",t:"Indemnités (nuit, SBN, km, repas)",h:`
+<h3>Les indemnités CCT</h3>
+<p>Calculées automatiquement depuis les heures de début/fin.</p>
+<h4>Ind.nuit / sam / dim</h4>
+<p>Minutes en plage spéciale → 5.50 CHF/h. Lu–Ve 20h–06h (arrondi ¼h sup.) ; samedi 12h–20h ; dim/fériés 06h–20h.</p>
+<h4>SBN</h4>
+<p>Pourcentage du salaire horaire en zone nocturne : +10% (22h–00h), +40% (00h–04h, et 04h–05h si début &lt; 04h).</p>
+<h4>Ind. km (cross-dépôt) — 0.70 CHF/km</h4>
+<p>Accordée quand votre <b>prise de service</b> diffère de votre dépôt. Formule conforme :</p>
+<p><code>km A/R = (domicile→prise A/R) − (trajet normal domicile→dépôt A/R)</code>, plancher 0, × 0.70 CHF/km.</p>
+<p>Le plancher à 0 applique l'exception <b>Annexe 6</b> : si la prise vous rapproche de chez vous, pas d'indemnité. Les distances viennent de la <b>table par commune intégrée</b> (conforme, hors-ligne) — d'où l'importance de renseigner votre commune.</p>
+<table class="r"><tr><td>NE ↔ CDF</td><td>≈ 42 km A/R → 29.40 CHF</td></tr><tr><td>NE ↔ FLE</td><td>≈ 62 km A/R → 43.40 CHF</td></tr><tr><td>CDF ↔ FLE</td><td>≈ 72 km A/R → 50.40 CHF</td></tr></table>
+<p class="muted">L'attestation affiche les km réels déclarés ; le montant = km × 0.70.</p>
+<h4>Ind. repas — 25.- CHF (CCT §2.8)</h4>
+<p>Due si la <b>collation</b> a lieu <b>hors de votre dépôt</b>, dans la fenêtre <b>11h–13h</b> ou <b>18h–21h</b>, avec une <b>vraie pause</b> (≥ 30 min). La page vérifie ces trois conditions.</p>`},
+  {id:"alertes",t:"Alertes & code couleur",h:`
+<h3>Statuts et alertes</h3>
+<h4>Code couleur des statuts</h4>
+<table class="r">
+<tr><td><span class="ok">✓ Conforme (vert)</span></td><td>Rien à signaler, ou élément favorable à vous</td></tr>
+<tr><td><span style="color:var(--blue)">ⓘ Info (bleu)</span></td><td>Information / point neutre à connaître</td></tr>
+<tr><td><span class="warn">⚠ Attention (jaune)</span></td><td>À vérifier — écart possible en votre faveur ou défaveur</td></tr>
+<tr><td><span class="bad">⊘ Erreur (rouge)</span></td><td>Anomalie défavorable ou violation légale</td></tr>
+</table>
+<p>Dans le détail d'une ligne, chaque correction est marquée <span class="ok">AVANTAGEUX</span> (en votre faveur) ou <span class="bad">DÉFAVORABLE</span>, avec l'article CCT/LDT.</p>
+<h4>Alertes fréquentes</h4>
+<table class="r">
+<tr><td>TR &lt; GANTT</td><td>Temps rémunéré inférieur au GANTT → sous-payé</td></tr>
+<tr><td>IND KM MANQUANT</td><td>Tour cross-dépôt sans ligne Ind km</td></tr>
+<tr><td>REPAS MANQUANT</td><td>Collation hors dépôt en fenêtre repas, sans ligne Repas1</td></tr>
+<tr><td>Indemnité nuit / SBN</td><td>Montant différent du calcul CCT</td></tr>
+<tr><td>Repos &lt; 11h / 9h / 8h</td><td>Tour de repos réduit (LDT Art. 8, OLDT Art. 18)</td></tr>
+<tr><td>15 nuits / 28 j</td><td>Limite LDT Art. 9 al. 3</td></tr>
+<tr><td>13 jours consécutifs</td><td>Max sans repos (OLDT Art. 20 al. 2)</td></tr>
+<tr><td>Amplitude &gt; 12h</td><td>Maximum légal (LDT Art. 6)</td></tr>
+</table>
+<h4>Que faire ?</h4>
+<p>Vérifiez les valeurs. Si l'erreur est réelle, adressez-vous aux RH transN, ou au syndicat (SEV) pour les questions de repos/temps de travail.</p>`},
+  {id:"feries",t:"Jours fériés NE",h:`
+<h3>Jours fériés neuchâtelois</h3>
+<p>Calculés automatiquement, rien à configurer. Ils comptent comme un dimanche.</p>
+<h4>Fixes</h4>
+<table class="r"><tr><td>1 janvier</td><td>Nouvel An</td></tr><tr><td>2 janvier</td><td>Berchtoldstag</td></tr><tr><td>1ᵉʳ mars</td><td>Fête de la République NE</td></tr><tr><td>1ᵉʳ mai</td><td>Fête du Travail</td></tr><tr><td>1ᵉʳ août</td><td>Fête nationale</td></tr><tr><td>25 / 26 décembre</td><td>Noël / Saint-Étienne</td></tr></table>
+<h4>Mobiles (selon Pâques)</h4>
+<table class="r"><tr><td>Vendredi Saint</td><td>Pâques − 2 j</td></tr><tr><td>Lundi de Pâques</td><td>Pâques + 1 j</td></tr><tr><td>Ascension</td><td>Pâques + 39 j</td></tr><tr><td>Lundi de Pentecôte</td><td>Pâques + 50 j</td></tr><tr><td>Jeûne fédéral</td><td>3ᵉ dimanche de septembre + lundi</td></tr></table>`}
+ ]},
+ {grp:"Questions fréquentes",items:[
+  {id:"faq_ts",t:"J'ai fait des heures en plus",h:`
+<h3>Heures supplémentaires (TS)</h3>
+<p>Si vos heures réelles dépassent le GANTT, le surplus est du <b>TS</b>. Pour un tour variant (ex. <code>1001/1</code>), la page recalcule le TS depuis vos heures réelles de l'attestation et le compare à la base GANTT.</p>
+<ul>
+<li><span class="ok">Heures en plus créditées</span> (TS ≥ attendu) → vert/info.</li>
+<li><span class="warn">Heures en plus sous-créditées</span> → jaune « Variant TS sous-crédité » : on vous doit davantage.</li>
+<li class="muted">Heures en plus <b>absentes</b> de l'attestation → invisibles (la page ne peut pas deviner un dépassement non déclaré).</li>
+</ul>
+<p>Le passage de minuit (fin à 01:30) est géré automatiquement. Le TS se compense ensuite par des Rcomp (CCT §1.6).</p>`},
+  {id:"faq_cross",t:"J'ai travaillé dans un autre dépôt",h:`
+<h3>Tour cross-dépôt</h3>
+<p>Si vous êtes méca d'un dépôt et faites un tour d'un autre dépôt, votre <b>prise de service</b> peut différer de votre dépôt → indemnité km (0.70 CHF/km) et parfois repas.</p>
+<p>La page détecte le dépôt du tour d'après son code (10xx = NE, 11xx = FLE, 12xx = CDF) et applique les règles de prise effective. Elle vérifie ensuite que la ligne <b>Ind km</b> (et <b>Repas1</b> si pause repas hors dépôt) est bien présente.</p>
+<div class="note">Pour que le montant km soit calculé, renseignez votre <b>commune</b> dans Paramètres. Sinon la page signale juste « Ind KM probable — commune à renseigner ».</div>`},
+  {id:"faq_form",t:"Formation, maladie, vacances",h:`
+<h3>Formation</h3>
+<p>Code <code>Form</code> dans la colonne Tour, avec des heures saisies. La page la traite comme un tour pour le temps de travail.</p>
+<h3>Maladie / accident / vacances</h3>
+<p>Sur l'attestation, ces absences apparaissent en jours dans les colonnes Maladie / Vacances / RR et sont totalisées dans l'état des soldes. La page reprend ces totaux ; elle ne recalcule pas d'indemnité pour ces jours (ils ne font pas partie du temps de travail).</p>
+<div class="note warn">⚠ En cas de maladie longue ou d'accident grave, référez-vous aux RH et à votre assurance — la CCT prévoit des règles spécifiques non couvertes ici.</div>`},
+  {id:"faq_diff",t:"Un calcul ne correspond pas",h:`
+<h3>Un résultat diffère de ce que j'attends</h3>
+<ul>
+<li>Vérifiez que le <b>dépôt</b> et la <b>commune</b> sont corrects dans Paramètres (surtout pour les km).</li>
+<li>Le PDF doit être l'<b>original transN non modifié</b> (la lecture est basée sur la position exacte des colonnes).</li>
+<li>Les <b>variants /1</b> ont leurs propres chiffres : la page recalcule TR/TS/DTA depuis vos heures réelles, ce qui peut différer du tour de base.</li>
+<li>Le mode <b>en rotation</b> n'étant pas encore porté, certaines réductions de repos planifiées peuvent être signalées « à vérifier » alors qu'elles sont normales dans votre cycle.</li>
+</ul>
+<p>Si un écart persiste, notez la ligne concernée et signalez-le — c'est précieux pour fiabiliser l'outil.</p>`}
+ ]}
+];
+function buildHelp(){
+  const nav=$("helpNav"); nav.innerHTML="";
+  HELP.forEach(g=>{ const gt=document.createElement("div"); gt.className="grp"; gt.textContent=g.grp; nav.appendChild(gt);
+    g.items.forEach(it=>{ const a=document.createElement("a"); a.textContent=it.t; a.dataset.id=it.id;
+      a.onclick=()=>showHelp(it.id); nav.appendChild(a); }); });
+}
+function showHelp(id){
+  let item=null; HELP.forEach(g=>g.items.forEach(it=>{ if(it.id===id)item=it; }));
+  if(!item)return;
+  $("helpContent").innerHTML=item.h;
+  $("helpContent").scrollTop=0;
+  document.querySelectorAll("#helpNav a").forEach(a=>a.classList.toggle("on",a.dataset.id===id));
+}
+function openHelp(){ if(!$("helpNav").children.length)buildHelp(); showHelp("compteurs"); $("helpModal").classList.add("show"); }
+$("btnHelp").onclick=openHelp;
+$("btnCloseHelp").onclick=()=>$("helpModal").classList.remove("show");
+$("helpModal").onclick=e=>{ if(e.target.id==="helpModal")$("helpModal").classList.remove("show"); };
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"){$("helpModal").classList.remove("show");$("settingsModal").classList.remove("show");} });
+
+/* init */
+refreshProfile();
+if(!SETTINGS.Depot){ openSettings(); }
+</script>
+</body>
+</html>
