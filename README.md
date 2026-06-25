@@ -4,13 +4,13 @@ Vérificateur d'**attestations mensuelles de temps de travail** pour les mécani
 
 Glissez votre PDF d'attestation → la page le lit, recalcule chaque jour selon la **LDT**, l'**OLDT** et la **CCT transN**, et affiche un tableau coloré avec les anomalies, les indemnités dues et le détail des calculs.
 
-> **Outil indépendant**, non affilié à transN. Votre attestation officielle transN fait foi — cet outil sert à **repérer les écarts** et à **comprendre vos droits**.
+> **Outil indépendant**, non affilié à transN. Votre attestation officielle transN fait foi - cet outil sert à **repérer les écarts** et à **comprendre vos droits**.
 
 ---
 
 ## ✨ Fonctionnalités
 
-- **Lecture du PDF dans le navigateur** (via [pdf.js](https://mozilla.github.io/pdf.js/)) — analyse par position exacte des colonnes.
+- **Lecture du PDF dans le navigateur** (via [pdf.js](https://mozilla.github.io/pdf.js/)) - analyse par position exacte des colonnes.
 - **Moteur de vérification complet** : amplitude, indemnité nuit, SBN, indemnité km, repas, TR/TS/DTA vs GANTT, tours de repos, dimanche/fériés, et contrôles sur le mois (15 nuits/28 j, 13 jours consécutifs, 7 nuits consécutives, temps effectif > 10 h, amplitude > 12 h…).
 - **Indemnités km conformes et hors-ligne** : calcul depuis votre **commune de domicile** (table de distances intégrée), formule CCT Annexe 6 / Annexe 3 §2.9.
 - **Tableau coloré** par statut (Conforme / Info / Attention / Erreur) + **panneau de détail** par ligne avec l'article CCT/LDT et l'étiquette *avantageux* / *défavorable*.
@@ -22,7 +22,7 @@ Glissez votre PDF d'attestation → la page le lit, recalcule chaque jour selon 
 
 ## 🔒 Confidentialité
 
-Tout est traité **localement dans votre navigateur**. **Votre PDF ne quitte jamais votre appareil** — il n'est envoyé à aucun serveur. Vos réglages (dépôt, commune) sont mémorisés uniquement dans le stockage local de votre navigateur.
+Tout est traité **localement dans votre navigateur**. **Votre PDF ne quitte jamais votre appareil** - il n'est envoyé à aucun serveur. Vos réglages (dépôt, commune) sont mémorisés uniquement dans le stockage local de votre navigateur.
 
 La seule connexion réseau possible est **optionnelle** : si vous géocodez une adresse précise (OpenStreetMap) ou affinez les distances (OSRM). Le calcul par commune, lui, est **100 % hors-ligne**.
 
@@ -46,7 +46,7 @@ La seule connexion réseau possible est **optionnelle** : si vous géocodez une 
 
 1. Ouvrez la page → **Paramètres (F2)**.
 2. Choisissez votre **dépôt** (Neuchâtel, Fleurier ou La Chaux-de-Fonds).
-3. Choisissez votre **commune de domicile** — indispensable pour les indemnités km (calcul conforme et hors-ligne).
+3. Choisissez votre **commune de domicile** - indispensable pour les indemnités km (calcul conforme et hors-ligne).
 4. **Enregistrez**, puis **glissez votre attestation PDF** sur la page (ou *Ouvrir un PDF*).
 5. Lisez les résultats : statut coloré par jour, **clic sur une ligne** pour le détail des calculs, bande de compteurs en bas.
 
@@ -86,9 +86,9 @@ Le PDF doit être l'**original transN non modifié**.
 
 ## 📚 Base légale
 
-- **LDT** — RS 822.21 (Loi fédérale sur la durée du travail)
-- **OLDT** — RS 822.211 (Ordonnance d'exécution)
-- **CCT transN** — Annexes 1 à 11 (principalement 3, 4 et 6)
+- **LDT** - RS 822.21 (Loi fédérale sur la durée du travail)
+- **OLDT** - RS 822.211 (Ordonnance d'exécution)
+- **CCT transN** - Annexes 1 à 11 (principalement 3, 4 et 6)
 - **GANTT VN** transN valides depuis le 14.12.2025
 
 ---
