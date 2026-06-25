@@ -1,4 +1,4 @@
-# 🚆 TransN Checker — version web
+# 🚆 TransN Checker - version web
 
 Vérificateur d'**attestations mensuelles de temps de travail** pour les mécaniciens **voie normale (VN)** de transN, directement dans le navigateur.
 
