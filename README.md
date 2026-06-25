@@ -28,20 +28,6 @@ La seule connexion réseau possible est **optionnelle** : si vous géocodez une 
 
 ---
 
-## 🌐 Mettre en ligne sur GitHub Pages
-
-1. Créez un dépôt et ajoutez-y le fichier **`index.html`** (renommez `transn-checker.html` en `index.html` si besoin).
-2. Dans le dépôt : **Settings → Pages**.
-3. *Source* : **Deploy from a branch** → branche `main`, dossier `/ (root)` → **Save**.
-4. Après ~1 minute, votre page est en ligne à l'adresse :
-   ```
-   https://<votre-pseudo>.github.io/<nom-du-depot>/
-   ```
-
-> La page fonctionne aussi en l'ouvrant simplement en local (double-clic), mais le **géocodage d'adresse** et le **calcul routier OSRM** ne marchent **que sur la version hébergée**. Le calcul des km par commune fonctionne partout.
-
----
-
 ## 🛠️ Utilisation
 
 1. Ouvrez la page → **Paramètres (F2)**.
