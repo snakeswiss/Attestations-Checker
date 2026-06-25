@@ -119,6 +119,7 @@
   .hcontent code{background:#0b0f15;border:1px solid var(--line);border-radius:4px;padding:0 4px;font-size:12px}
   /* mobile back button (hidden on desktop) */
   .mback{display:none}
+  .mhint{display:none;color:var(--muted);font-size:11px}
   /* ============ RESPONSIVE (téléphones / petits écrans) ============ */
   @media (max-width:820px){
     header{padding:8px 11px;gap:7px}
@@ -129,12 +130,22 @@
     .wrap{flex-direction:column}
     .left{border-right:none;min-height:0}
     .toolbar{padding:8px 11px}
-    /* Table : ne garder que Date, Tour, Début, Fin, Statut — le reste est dans le détail */
-    #grid th:nth-child(n+5):nth-child(-n+10), #rows td:nth-child(n+5):nth-child(-n+10),
-    #grid th:nth-child(12), #rows td:nth-child(12){ display:none; }
-    table{font-size:13.5px}
-    th,td{padding:9px 9px}
-    td.corr{display:none}
+    /* Table : TOUTES les colonnes, défilement horizontal tactile.
+       La colonne Date reste figée à gauche et prend la couleur du statut. */
+    #grid th:nth-child(12), #rows td:nth-child(12){ display:none; } /* Corrections → dans le détail (au tap) */
+    #grid{width:auto;min-width:100%}
+    table{font-size:13px}
+    th,td{padding:8px 9px;white-space:nowrap}
+    #grid th:first-child{position:sticky;left:0;z-index:5}
+    #rows td:first-child{position:sticky;left:0;z-index:2;background:#0e1116}
+    tr.row:hover td:first-child{background:#141a23}
+    tr.sel td:first-child{background:#15233a}
+    tr.sev-OK td:first-child{border-left:4px solid var(--green)}
+    tr.sev-Info td:first-child{border-left:4px solid var(--blue)}
+    tr.sev-Attention td:first-child{border-left:4px solid var(--amber)}
+    tr.sev-Erreur td:first-child{border-left:4px solid var(--red)}
+    .drop{-webkit-overflow-scrolling:touch}
+    .mhint{display:inline !important}
     .counters{max-height:118px;gap:6px;padding:7px 10px}
     .cbox{min-width:84px;padding:4px 8px}
     /* Détail = volet plein écran qui glisse depuis la droite */
@@ -170,6 +181,7 @@
   <div class="left">
     <div class="toolbar">
       <strong id="fileName" style="font-size:12px">Aucun fichier</strong>
+      <span class="mhint">↔ glissez le tableau pour voir SBN, DTA, TS…</span>
       <label style="font-size:12px;margin-left:auto"><input type="checkbox" id="onlyIssues"> N'afficher que les anomalies</label>
     </div>
     <div class="drop" id="drop">
@@ -626,10 +638,14 @@ function analyserTour(calc,prev,profile,mois,kmAR,extraFeries){
         pTxt=" (collation GANTT "+gP.Coll+", pause "+pauseMin+" min)"; }
       else if(pauseMin>0) pTxt=" (pause GANTT "+pauseMin+" min, horaire non renseigné)";
       const degrade=diffMatches&&diff<0&&pauseNoct;
+      const pauseHoraireConnu=!!(gP&&gP.HasCollation);
       if(diff<0){
         if(degrade) C.push({Champ:"Indemnité nuit — pause en zone nocturne",Severite:"Info",IsAvantageux:true,
           ValOrig:row.IndNuit_Orig.toFixed(1)+" min",ValCorr:minNuit+" min (brut) − pause",Article:"CCT Annexe 3 §2.1",
           Explication:"IndNuit attestation "+row.IndNuit_Orig.toFixed(1)+" min ; brut 20h-06h (QH↑) "+minNuit+" min. Écart ≈ pause GANTT "+pauseMin+" min"+pTxt+", qui chevauche la zone nocturne : non rémunérée en indemnité nuit, écart normal."});
+        else if(diffMatches && !pauseHoraireConnu) C.push({Champ:"Indemnité nuit − pause (probablement normal)",Severite:"Info",IsAvantageux:false,
+          ValOrig:row.IndNuit_Orig.toFixed(1)+" min",ValCorr:minNuit+" min (brut) − pause "+pauseMin+" min",Article:"CCT Annexe 3 §2.1",
+          Explication:"IndNuit attestation "+row.IndNuit_Orig.toFixed(1)+" min ; brut 20h-06h (QH↑) "+minNuit+" min. L'écart ("+Math.abs(diff).toFixed(0)+" min) correspond exactement à la pause prévue au GANTT ("+pauseMin+" min), dont l'heure n'est pas renseignée. C'est très probablement la déduction normale de la pause sur l'indemnité nuit — écart normal. À confirmer seulement si vous voulez le détail horaire du tour."});
         else if(diffMatches) C.push(C_def("Indemnité nuit < calcul 20h-6h (à vérifier)",diff<-30?"Erreur":"Attention",
           row.IndNuit_Orig.toFixed(1)+" min",minNuit+" min (→ "+Cct.calcIndemNuitCHF(minNuit).toFixed(2)+" CHF)","CCT Annexe 3 §2.1",
           "IndNuit "+row.IndNuit_Orig.toFixed(1)+" min ; brut "+minNuit+" min. Écart = durée pause GANTT ("+pauseMin+" min)"+pTxt+" MAIS hors zone nocturne. Soit la pause réelle du variant tombe après 20h (écart normal), soit sous-paiement d'env. "+(Math.abs(diff)/60*Cct.IndemNuit_CHF_h).toFixed(2)+" CHF. À vérifier."));
@@ -1006,7 +1022,7 @@ function renderTable(){
     const sev=SEVNAME(SEVMAX(c.Corrections));
     if(onlyIssues&&(sev==="OK"||sev==="Info"))return;
     const r=c.Original; const tr=tag=>tag;
-    const t008=document.createElement("tr"); t008.className="row"+(i===SELIDX?" sel":""); t008.dataset.i=i;
+    const t008=document.createElement("tr"); t008.className="row sev-"+sev+(i===SELIDX?" sel":""); t008.dataset.i=i;
     const corrTxt=c.Corrections.map(x=>{
       const cls=x.IsAvantageux?"av":(x.Severite==="Info"?"nf":"de");
       return `<span class="tag ${cls}">${esc(x.Champ)}</span>`; }).join("");
@@ -1035,6 +1051,22 @@ function renderDetail(c){
   const r=c.Original; const d=$("detail");
   const dayName=r.Date?["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"][r.Date.getDay()]:"";
   let html=`<h2>DÉTAILS — CORRECTIONS</h2><div class="day">${r.Date?fmtFull(r.Date):""} — ${esc(r.TourCode)}</div>`;
+  // Valeurs lues sur l'attestation (utile sur mobile où les colonnes sont masquées)
+  {
+    const av=[];
+    if(r.Debut!=null) av.push(kv("Début → Fin", fmtHM(r.Debut)+" → "+fmtHM(r.Fin)+(r.Fin<r.Debut?" (+1 j.)":"")));
+    if(r.TR_Orig!=null) av.push(kv("Temps rémunéré (TR)", r.TR_Orig+" min · "+Cct.minToHHMM(r.TR_Orig)));
+    if(r.DTA_Orig!=null) av.push(kv("DTA", sgn(r.DTA_Orig)+" min"));
+    if(r.TS_Orig!=null) av.push(kv("TS — temps suppl.", r.TS_Orig+" min"));
+    if(r.IndNuit_Orig!=null) av.push(kv("Ind. nuit / sam / dim", r.IndNuit_Orig+" min"));
+    if(r.SBN_Orig!=null) av.push(kv("SBN (bonification nuit)", r.SBN_Orig.toFixed(2)));
+    if(r.Piquet_Orig!=null) av.push(kv("Piquet", r.Piquet_Orig.toFixed(2)));
+    if(r.Maladie_Orig!=null) av.push(kv("Maladie / accident", String(r.Maladie_Orig)));
+    if(r.Vacances_Orig!=null) av.push(kv("Vacances (jours)", String(r.Vacances_Orig)));
+    if(r.RR_Orig!=null) av.push(kv("Jours RR", String(r.RR_Orig)));
+    if(r.Remarques) av.push(kv("Remarques", esc(r.Remarques)));
+    if(av.length) html+=`<div class="sec"><h3>Attestation — valeurs lues</h3>${av.join("")}</div>`;
+  }
   if(r.Debut!=null&&r.Fin!=null){
     const amp=c.Amplitude_Calc;
     html+=`<div class="sec"><h3>Service</h3>
