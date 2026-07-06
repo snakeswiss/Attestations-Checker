@@ -492,14 +492,18 @@ async function parsePdf(file){
     }
     words=mergeFragments(words);
     const lines=groupLines(words);
+    const dataYs=lines.filter(l=>l.length&&tryDate(l[0].t.trim())).map(l=>l[0].y);
+    const firstDataY=dataYs.length?Math.min.apply(null,dataYs):Infinity;
+    const cols=detectColumns(words,firstDataY);
+    mois._colsFormat=cols?(cols.TT||cols.TSsup10?"nouveau (2026)":"standard"):"position fixe (repli)";
     for(const line of lines){ if(!line.length)continue;
       const full=line.map(w=>w.t.trim()).join(" ").trim();
       if(full.startsWith("Mois:")){ const parts=full.replace("Mois:","").trim().split(/\s+/);
         if(parts.length>=2&&/^\d+$/.test(parts[1])){mois.Annee=+parts[1];mois.Mois=moisNum(parts[0]);} continue; }
       if(full.startsWith("Nom:")){ mois.NomEmploye=full.replace("Nom:","").trim(); continue; }
-      if(full.startsWith("Total min")){ parseTotal(line,mois); continue; }
+      if(full.startsWith("Total min")){ parseTotal(line,mois,cols); continue; }
       if(parseSolde(full,mois))continue;
-      const row=parseDataRow(line); if(row)mois.Rows.push(row);
+      const row=parseDataRow(line,cols); if(row)mois.Rows.push(row);
     }
   }
   return mois;
@@ -519,13 +523,40 @@ function groupLines(words){
     else { lines.push(cur.slice().sort((a,b)=>a.x0-b.x0)); cur=[w]; cy=w.y; } }
   lines.push(cur.slice().sort((a,b)=>a.x0-b.x0)); return lines;
 }
-function parseDataRow(line){
+// Détection dynamique des colonnes à partir de l'en-tête (gère l'ancien ET le nouveau format).
+function detectColumns(words, firstDataY){
+  const hdr=words.filter(w=>w.y<firstDataY-2);
+  const fx=(re,lo,hi)=>{ const m=hdr.filter(w=>re.test(w.t)&&(lo==null||w.x0>=lo)&&(hi==null||w.x0<=hi)).sort((a,b)=>a.x0-b.x0); return m.length?m[0].x0:null; };
+  const A=[]; const push=(n,x)=>{ if(x!=null)A.push({name:n,x}); };
+  push("TR", fx(/rémunéré/i));
+  push("TT", fx(/^travail$/i,158,214));                 // "Temps de travail" (nouveau) uniquement entre TR et DTA
+  push("DTA", fx(/^DTA/i));
+  push("TS", fx(/^TS-min$/i)??fx(/^TS$/i,null,262));
+  push("TSsup10", fx(/^10$/,258,296)??fx(/^>$/));
+  push("IndNuit", fx(/Indemnit/i)??fx(/nuit\/sam/i));
+  push("SBN", fx(/Suppl/i)??fx(/bonification/i));
+  push("Piquet", fx(/Piquet/i));
+  push("Maladie", fx(/maladie/i));
+  push("Vacances", fx(/^vacances$/i));
+  push("CO", fx(/Cong/i)??fx(/^RR$/i));
+  push("Remarques", fx(/Remarques/i));
+  const names=A.map(a=>a.name);
+  if(!["TR","DTA","TS","IndNuit","SBN"].every(n=>names.includes(n))) return null; // sécurité → repli position fixe
+  A.sort((a,b)=>a.x-b.x); const cols={};
+  for(let i=0;i<A.length;i++){
+    const lo=i===0?-Infinity:A[i].x;
+    const hi=i===A.length-1?Infinity:A[i+1].x;
+    cols[A[i].name]={lo,hi};
+  }
+  return cols;
+}
+function colAt(cols,x){ for(const k in cols){ if(x>=cols[k].lo&&x<cols[k].hi)return k; } return null; }
+function parseDataRow(line,cols){
   if(!line.length)return null; const date=tryDate(line[0].t.trim()); if(!date)return null;
-  const row={Date:date,TourCode:"",Type:"Unknown",Debut:null,Fin:null,TR_Orig:null,DTA_Orig:null,TS_Orig:null,
+  const row={Date:date,TourCode:"",Type:"Unknown",Debut:null,Fin:null,TR_Orig:null,TT_Orig:null,DTA_Orig:null,TS_Orig:null,
     IndNuit_Orig:null,SBN_Orig:null,Piquet_Orig:null,Maladie_Orig:null,Vacances_Orig:null,RR_Orig:null,Remarques:""};
   if(line.length<2)return row;
   // Code de tour = tous les mots après la date situés AVANT la colonne Début (x0 < 100).
-  // Permet de distinguer "Ind KM" de "Ind R" (sinon seul "Ind" est conservé → mauvaise classe).
   let j=1; const codeWords=[];
   while(j<line.length && line[j].x0<100 && !isTime(line[j].t)){ codeWords.push(line[j].t.trim()); j++; }
   row.TourCode=codeWords.join(" ").trim()||line[1].t.trim();
@@ -533,6 +564,28 @@ function parseDataRow(line){
   let idx=j;
   if(idx<line.length&&isTime(line[idx].t)){ row.Debut=parseTimeMin(line[idx++].t);
     if(idx<line.length&&isTime(line[idx].t)) row.Fin=parseTimeMin(line[idx++].t); }
+  if(cols){
+    for(let i=idx;i<line.length;i++){
+      let t=line[i].t.trim().replace(/[\u2212\u2013]/g,"-"); if(!t)continue;
+      switch(colAt(cols,(line[i].x0+line[i].x1)/2)){
+        case "TR": if(row.TR_Orig==null&&pint(t)!=null)row.TR_Orig=pint(t); break;
+        case "TT": if(row.TT_Orig==null&&pint(t)!=null)row.TT_Orig=pint(t); break;
+        case "DTA": if(row.DTA_Orig==null&&pintS(t)!=null)row.DTA_Orig=pintS(t); break;
+        case "TS": if(row.TS_Orig==null&&pint(t)!=null)row.TS_Orig=pint(t); break;
+        case "TSsup10": break;
+        case "IndNuit": if(pint(t)!=null)row.IndNuit_Orig=pint(t); break;
+        case "SBN": if(pdouble(t)!=null)row.SBN_Orig=pdouble(t); break;
+        case "Piquet": if(pdouble(t)!=null)row.Piquet_Orig=pdouble(t); break;
+        case "Maladie": if(pdouble(t)!=null)row.Maladie_Orig=pdouble(t); break;
+        case "Vacances": if(pdouble(t)!=null)row.Vacances_Orig=pdouble(t); break;
+        case "CO": if(pdouble(t)!=null)row.RR_Orig=pdouble(t); break;
+        case "Remarques": row.Remarques=(row.Remarques+" "+t).trim(); break;
+        default: if(pdouble(t)==null)row.Remarques=(row.Remarques+" "+t).trim();
+      }
+    }
+    return row;
+  }
+  // Repli : anciennes frontières fixes
   for(let i=idx;i<line.length;i++){
     let t=line[i].t.trim().replace(/[\u2212\u2013]/g,"-"); if(!t)continue; const x=line[i].x0;
     if(x<PX.TS){ if(row.TR_Orig==null&&pint(t)!=null)row.TR_Orig=pint(t);
@@ -548,7 +601,19 @@ function parseDataRow(line){
   }
   return row;
 }
-function parseTotal(line,mois){
+function parseTotal(line,mois,cols){
+  if(cols){
+    for(const w of line){ let t=w.t.trim().replace(/[\u2212\u2013]/g,"-"); if(!t||/^(Total|min\.|Jours)$/.test(t))continue;
+      switch(colAt(cols,(w.x0+w.x1)/2)){
+        case "TR": if(pint(t)!=null&&!mois.TotalTR_Orig)mois.TotalTR_Orig=pint(t); break;
+        case "DTA": if(pintS(t)!=null&&!mois.TotalDTA_Orig)mois.TotalDTA_Orig=pintS(t); break;
+        case "TS": if(pint(t)!=null&&!mois.TotalTS_Orig)mois.TotalTS_Orig=pint(t); break;
+        case "IndNuit": if(pint(t)!=null)mois.TotalIndNuit_Orig=pint(t); break;
+        case "SBN": if(pdouble(t)!=null)mois.TotalSBN_Orig=pdouble(t); break;
+      }
+    }
+    return;
+  }
   for(const w of line){ let t=w.t.trim().replace(/[\u2212\u2013]/g,"-");
     if(!t||t==="Total"||t==="min."||t==="Jours")continue; const x=w.x0;
     if(x<PX.TS){ if(mois.TotalTR_Orig===0&&pint(t)!=null)mois.TotalTR_Orig=pint(t);
@@ -649,9 +714,9 @@ function analyserTour(calc,prev,profile,mois,kmAR,extraFeries){
         else if(diffMatches) C.push(C_def("Indemnité nuit < calcul 20h-6h (à vérifier)",diff<-30?"Erreur":"Attention",
           row.IndNuit_Orig.toFixed(1)+" min",minNuit+" min (→ "+Cct.calcIndemNuitCHF(minNuit).toFixed(2)+" CHF)","CCT Annexe 3 §2.1",
           "IndNuit "+row.IndNuit_Orig.toFixed(1)+" min ; brut "+minNuit+" min. Écart = durée pause GANTT ("+pauseMin+" min)"+pTxt+" MAIS hors zone nocturne. Soit la pause réelle du variant tombe après 20h (écart normal), soit sous-paiement d'env. "+(Math.abs(diff)/60*Cct.IndemNuit_CHF_h).toFixed(2)+" CHF. À vérifier."));
-        else C.push(C_def("Indemnité nuit trop basse",diff<-30?"Erreur":"Attention",
+        else C.push(C_def(gP?"Indemnité nuit trop basse":"Indemnité nuit < calcul (tour hors GANTT — à vérifier)",gP?(diff<-30?"Erreur":"Attention"):"Attention",
           row.IndNuit_Orig.toFixed(1)+" min",minNuit+" min (→ "+Cct.calcIndemNuitCHF(minNuit).toFixed(2)+" CHF)","CCT Annexe 3 §2.1",
-          "Sous-payé de "+Math.abs(diff).toFixed(1)+" min de service nuit. Calculé "+minNuit+" min (20h-06h, QH↑) = "+Cct.calcIndemNuitCHF(minNuit).toFixed(2)+" CHF. Attestation "+row.IndNuit_Orig.toFixed(1)+" min. Manque "+(Math.abs(diff)/60*Cct.IndemNuit_CHF_h).toFixed(2)+" CHF."));
+          (gP?"Sous-payé de "+Math.abs(diff).toFixed(1)+" min de service nuit. ":"Écart de "+Math.abs(diff).toFixed(1)+" min. ")+"Calculé (prise→06h, QH↑) "+minNuit+" min = "+Cct.calcIndemNuitCHF(minNuit).toFixed(2)+" CHF ; attestation "+row.IndNuit_Orig.toFixed(1)+" min."+(gP?" Manque "+(Math.abs(diff)/60*Cct.IndemNuit_CHF_h).toFixed(2)+" CHF.":" Ce tour n'étant pas au GANTT, le calcul part de la prise de service sans connaître pauses/temps non productif. Si vous étiez réellement en service dès le début, possible sous-paiement ; sinon écart normal.")));
       } else C.push(C_av("Indemnité nuit supérieure au calcul","Attention",
         row.IndNuit_Orig.toFixed(1)+" min",minNuit+" min (calculé)","CCT Annexe 3 §2.1",
         "L'attestation crédite "+row.IndNuit_Orig.toFixed(1)+" min, soit "+sgn(+diff.toFixed(1))+" min de plus que le calcul. Favorable — arrondi différent ou accord employeur."));
@@ -1010,7 +1075,7 @@ async function runAnalysis(){
     Domicile:SETTINGS.Domicile,DomicileLat:SETTINGS.DomicileLat,DomicileLng:SETTINGS.DomicileLng,DomicileLabel:SETTINGS.DomicileLabel||SETTINGS.Domicile} : null;
   analyser(CURRENT,profile,KM,null);
   renderTable(); renderCounters();
-  $("detail").innerHTML='<div class="none">Cliquez sur une ligne pour voir le détail.'+(KM?` <br><br><span style="font-size:11px">Distances km : ${KM._src}.</span>`:' <br><br><span style="font-size:11px;color:var(--amber)">⚠ Commune de domicile non renseignée — indemnités km non calculées (Paramètres).</span>')+'</div>';
+  $("detail").innerHTML='<div class="none">Cliquez sur une ligne pour voir le détail.'+(CURRENT&&CURRENT._colsFormat?` <br><br><span style="font-size:11px">Format attestation détecté : <b>${CURRENT._colsFormat}</b>.</span>`:'')+(KM?` <br><span style="font-size:11px">Distances km : ${KM._src}.</span>`:' <br><br><span style="font-size:11px;color:var(--amber)">⚠ Commune de domicile non renseignée — indemnités km non calculées (Paramètres).</span>')+'</div>';
 }
 
 let SELIDX=-1;
@@ -1023,7 +1088,7 @@ function renderTable(){
     if(onlyIssues&&(sev==="OK"||sev==="Info"))return;
     const r=c.Original; const tr=tag=>tag;
     const t008=document.createElement("tr"); t008.className="row sev-"+sev+(i===SELIDX?" sel":""); t008.dataset.i=i;
-    const corrTxt=c.Corrections.map(x=>{
+    const corrTxt=[...c.Corrections].sort((a,b)=>SEVRANK(b.Severite)-SEVRANK(a.Severite)).map(x=>{
       const cls=x.IsAvantageux?"av":(x.Severite==="Info"?"nf":"de");
       return `<span class="tag ${cls}">${esc(x.Champ)}</span>`; }).join("");
     t008.innerHTML=`
@@ -1086,7 +1151,7 @@ function renderDetail(c){
   }
   if(c.Corrections.length){
     html+=`<div class="sec" style="background:transparent;border:none;padding:0"><h3>Corrections détectées (${c.Corrections.length})</h3>`;
-    for(const x of c.Corrections){
+    for(const x of [...c.Corrections].sort((a,b)=>SEVRANK(b.Severite)-SEVRANK(a.Severite))){
       const cls=x.IsAvantageux?"av":(x.Severite==="Info"?"nf":"de");
       const lbl=x.IsAvantageux?"AVANTAGEUX ✓":(x.Severite==="Erreur"?"DÉFAVORABLE ⊘":x.Severite==="Attention"?"À VÉRIFIER ⚠":"INFO ⓘ");
       html+=`<div class="corritem ${cls}">
