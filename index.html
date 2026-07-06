@@ -227,7 +227,7 @@
         <button data-m="hors_rotation">Hors rotation</button>
         <button data-m="en_rotation">En rotation</button>
       </div>
-      <small>« En rotation » (inférence du cycle) sera ajouté prochainement — pour l'instant l'analyse tourne en mode hors-rotation.</small>
+      <small>« En rotation » : la page détecte automatiquement votre semaine dans le cycle à partir de vos tours, et n'alerte plus sur les repos réduits / services après repos qui sont normaux dans la rotation.</small>
     </div>
     <div class="field">
       <label>Nom (facultatif)</label>
@@ -450,6 +450,89 @@ async function kmRoundTrip(la1,lo1,la2,lo2){
 }
 
 /* =====================================================================
+   ROTATION VN 2026   (port de BuiltinRotationData.cs + RotationInference.cs)
+   Chaque semaine = 7 slots Lu..Di. Code numérique = tour ; "COMP","R",
+   "RSV"=réserve, ""=aucun.
+   ===================================================================== */
+const ROT = {
+  NE:{ cycle:15, hors:["1052","1053"], weeks:[
+    ["1010","COMP","1004","1001","1004","COMP","R"],
+    ["1001","1003","1005","R","1006","1057","1060"],
+    ["COMP","RSV","1009","1010","1009","COMP","R"],
+    ["1003","1001","1002","R","1054","1055",""],
+    ["1002","1005","COMP","1006","1007","R",""],
+    ["1007","1006","COMP","1011","1010","R","1053"],
+    ["1004","1006","1008","COMP","R","1056","1057"],
+    ["COMP","1002","1001","1005","R","1056","1057"],
+    ["1006","1007","COMP","1011","1010","R",""],
+    ["1011","1010","1011","R","1051","1052",""],
+    ["1005","COMP","RSV","1007","1008","R",""],
+    ["1009","1008","1010","RSV","R","1058","1056"],
+    ["1008","1011","R","1003","1001","1055","1054"],
+    ["COMP","1004","1003","1002","1005","COMP","R"],
+    ["RSV","1006","1007","1009","R","1059","1058"] ]},
+  FLE:{ cycle:9, hors:[], weeks:[
+    ["1105","1107","R","1101","1102","1151","1152"],
+    ["1103","R","1104","1103","COMP","R",""],
+    ["1104","1105","1106","1107","R","1154","1155"],
+    ["1107","1106","1106","1107","R","1151","1152"],
+    ["1102","1104","COMP","1105","1106","R",""],
+    ["COMP","1103","1104","1104","1105","1155","1153"],
+    ["R","1101","1102","1103","COMP","COMP","R"],
+    ["1101","1102","1103","R","1105","1153","1154"],
+    ["1106","COMP","1105","1106","1107","R",""] ]},
+  CDF:{ cycle:9, hors:["1207"], weeks:[
+    ["1203","1201","COMP","1202","1203","COMP","R"],
+    ["1205","1206","1207","R","1201","1252","1251"],
+    ["1202","1203","1204","COMP","COMP","R","1253"],
+    ["1204","1204","1205","1204","R","1255","1254"],
+    ["1207","1205","COMP","1205","1206","R",""],
+    ["1201","1202","1203","1204","1205","R",""],
+    ["COMP","1206","1206","1207","1207","R","1254"],
+    ["COMP","1201","1202","1203","COMP","R",""],
+    ["1206","1207","1201","R","1201","1251","1252"] ]}
+};
+function slotType(c){ if(!c)return"none"; if(c==="COMP")return"comp"; if(c==="R")return"repos"; if(c==="RSV"||c==="Réserve")return"reserve"; return"tour"; }
+function slotIsTravail(c){ return slotType(c)==="tour"; }
+function rotLabel(c){ if(!c)return"—"; if(c==="R")return"Repos"; if(c==="COMP")return"Compensation (COMP)"; if(c==="RSV"||c==="Réserve")return"Réserve"; return"Tour "+c; }
+function getMonday(d){ const x=new Date(d); const diff=(x.getDay()+6)%7; x.setDate(x.getDate()-diff); x.setHours(0,0,0,0); return x; }
+function rotInfer(depot, rows){
+  const rot=ROT[(depot||"").toUpperCase()]; if(!rot)return null; const cycleLen=rot.cycle;
+  const inAny=code=>rot.weeks.some(w=>w.some(s=>s===code));
+  const byMon={};
+  for(const r of rows){ if(r.Type!=="Tour"||!r.Date||!r.TourCode)continue;
+    const base=r.TourCode.split("/")[0].trim(); if(!inAny(base))continue;
+    const mon=getMonday(r.Date).getTime(); const dow=(r.Date.getDay()+6)%7;
+    (byMon[mon]||(byMon[mon]={}))[dow]=base; }
+  const mondays=Object.keys(byMon).map(Number).sort((a,b)=>a-b); if(!mondays.length)return null;
+  const first=mondays[0]; let best={hyp:1,matches:-1,total:0};
+  for(let hyp=1;hyp<=cycleLen;hyp++){ let matches=0,total=0;
+    for(const mon of mondays){ const we=Math.round((mon-first)/86400000/7);
+      const pos=((hyp-1+we)%cycleLen)+1; const wk=rot.weeks[pos-1]; if(!wk)continue;
+      const obs=byMon[mon];
+      for(const ds in obs){ const dow=+ds; const slot=wk[dow]; total++; if(slotIsTravail(slot)&&slot===obs[dow])matches++; } }
+    if(matches>best.matches)best={hyp,matches,total}; }
+  if(best.total===0)return null;
+  return {anchorMonday:first, anchorWeek:best.hyp, matchCount:best.matches, total:best.total, confidence:best.matches/best.total};
+}
+function rotWeekForDate(inf, date, cycleLen){
+  const mon=getMonday(date).getTime(); const we=Math.round((mon-inf.anchorMonday)/86400000/7);
+  return ((((inf.anchorWeek-1+we)%cycleLen)+cycleLen)%cycleLen)+1;
+}
+function rotContext(depot, tourCode, weekPos, dow){
+  const rot=ROT[(depot||"").toUpperCase()]; if(!rot)return null;
+  const week=rot.weeks[weekPos-1]; if(!week||dow<0||dow>6)return null;
+  const base=tourCode.split("/")[0].trim(); const today=week[dow];
+  let prev; if(dow>0)prev=week[dow-1]; else{ const pp=weekPos===1?rot.cycle:weekPos-1; const pw=rot.weeks[pp-1]; prev=pw?pw[6]:""; }
+  let next; if(dow<6)next=week[dow+1]; else{ const np=(weekPos%rot.cycle)+1; const nw=rot.weeks[np-1]; next=nw?nw[0]:""; }
+  return {position:weekPos, dow, expectedToday:today||null, expectedType:slotType(today), previous:prev||null, next:next||null,
+    isConforme:slotType(today)==="tour"&&today===base};
+}
+function rotIsHors(depot, tourCode){ const rot=ROT[(depot||"").toUpperCase()]; if(!rot)return false; return rot.hors.includes((tourCode||"").trim()); }
+const DOW_FR=["lundi","mardi","mercredi","jeudi","vendredi","samedi","dimanche"];
+let _inference=null; // inférence rotation du mois en cours (si en rotation)
+
+/* =====================================================================
    PARSER PDF   (port de AttestationParser.cs via pdf.js)
    ===================================================================== */
 const PX={ TS:225, INDNUIT:255, SBN:295, PIQUET:345, MALADIE:375, VACANCES:408, RR:440, REMARQUES:480 };
@@ -649,6 +732,10 @@ function sgn(n){ return (n>0?"+":"")+n; }
 
 function analyser(mois,profile,kmAR /* {NE,FLE,CDF} A/R from domicile, or null */, extraFeries){
   mois.Corrigees=[];
+  // Inférence de la position dans le cycle (si en rotation)
+  _inference = (profile&&profile.EnRotation&&profile.Depot)
+    ? rotInfer(profile.Depot, mois.Rows) : null;
+  mois._inference = _inference;
   const rows=mois.Rows.slice().sort((a,b)=>(a.Date-b.Date)||((a.Debut??0)-(b.Debut??0)));
   // prev day type
   const rank=t=>({Tour:6,Formation:5,Rcomp:4,Syndical:3,Repos:2,IndKm:0,IndRepos:0,Repas:0})[t]??1;
@@ -822,6 +909,8 @@ function analyserTour(calc,prev,profile,mois,kmAR,extraFeries){
       }
       if(!isVariant&&gRef.SBN>0&&!hasSBN) C.push(C_def("SBN manquant vs GANTT","Attention","0 min (calcul horaires)",gRef.SBN+" min (GANTT prévu)","GANTT "+profile.Depot+" / OLDT Art. 17","Le GANTT prévoit "+gRef.SBN+" min de SBN. Non détecté — vérifier si le tour a été modifié."));
       if(!isVariant&&gRef.SBN===0&&hasSBN) C.push(C_av("SBN inattendu vs GANTT","Attention",sbnMin+" min (calculé)","0 min (GANTT référence)","GANTT "+profile.Depot+" / OLDT Art. 17","GANTT SBN=0 mais horaires génèrent "+sbnMin+" min. Favorable si crédité."));
+      // Tour classé hors rotation
+      if(profile.EnRotation&&rotIsHors(profile.Depot,row.TourCode)) C.push({Champ:"Tour hors rotation",Severite:"Info",IsAvantageux:false,ValOrig:row.TourCode,ValCorr:"Hors rotation "+profile.Depot,Article:"Rotation VN 2026",Explication:"Tour "+row.TourCode+" classé hors rotation pour le dépôt "+profile.Depot+". Vérifier la planification (CCT Annexe 4 §1.7)."});
     } else if(row.Type==="Tour"){
       const dd=Gantt.getTourDepot(row.TourCode); const vn=dd!=null; let expl,champ,vc;
       if(vn&&dd!==profile.Depot){ expl="Le code "+row.TourCode+" appartient au dépôt "+dd+". Variant non répertorié — tour cross-dépôt valide.";champ="Tour non répertorié dans le GANTT";vc="Variant GANTT inconnu"; }
@@ -856,16 +945,33 @@ function analyserTour(calc,prev,profile,mois,kmAR,extraFeries){
     else if(reposMin<Cct.Repos_ForceMajeure) C.push(C_def("Repos < 8h — ILLÉGAL","Erreur",Cct.minToHHMM(reposMin),"≥ 9h (convention) · cible 12h","LDT Art. 8, OLDT Art. 18","Repos de "+Cct.minToHHMM(reposMin)+" sous le plancher de 8h (force majeure). Situation illégale — à signaler (SEV)."));
     else if(reposMin<Cct.Repos_AbsMin) C.push(C_def("Repos 8h–9h — force majeure uniquement","Erreur",Cct.minToHHMM(reposMin),"≥ 9h (convention) · cible 12h","LDT Art. 8, OLDT Art. 18","Repos de "+Cct.minToHHMM(reposMin)+" sous le minimum conventionnel de 9h. Admis qu'en force majeure — sinon à signaler (SEV)."));
     else if(reposMin<Cct.Repos_Cible){
-      if(reposMin<Cct.Repos_Hebdo) C.push(C_def("Repos réduit 9h–11h — convention requise","Attention",Cct.minToHHMM(reposMin),"Cible ≥ 12h00 · 11h max 1×/sem sinon","LDT Art. 8, OLDT Art. 18 al. 2","Repos de "+Cct.minToHHMM(reposMin)+" (9h-11h). Réduction permise par convention (moyenne ≥12h sur 2 tours suivants). À vérifier — sinon SEV."));
-      else C.push({Champ:"Repos réduit à 11h — réduction hebdomadaire permise",Severite:"Info",IsAvantageux:false,ValOrig:Cct.minToHHMM(reposMin),ValCorr:"Cible ≥ 12h00",Article:"LDT Art. 8","Explication":"Repos de "+Cct.minToHHMM(reposMin)+" (11h-12h). La LDT permet UNE réduction à 11h par semaine."});
+      // Atténuation rotation : si ce tour est celui prévu par la rotation ce jour, le repos réduit est planifié.
+      let rotConforme=false, rotNote="";
+      if(profile&&profile.EnRotation&&_inference&&ROT[(profile.Depot||"").toUpperCase()]){
+        const wp=rotWeekForDate(_inference,row.Date,ROT[profile.Depot.toUpperCase()].cycle);
+        const ctx=rotContext(profile.Depot,row.TourCode,wp,(row.Date.getDay()+6)%7);
+        if(ctx&&ctx.isConforme){ rotConforme=true; rotNote=" Tour "+row.TourCode+" conforme à la rotation (semaine "+wp+" du cycle) : repos réduit prévu par la rotation."; }
+      }
+      if(rotConforme) C.push({Champ:"Repos normalement réduit (rotation)",Severite:"Info",IsAvantageux:true,ValOrig:Cct.minToHHMM(reposMin),ValCorr:"Cible ≥ 12h00",Article:"CCT Annexe 4 §1.5 (rotation planifiée)",Explication:"Repos de "+Cct.minToHHMM(reposMin)+" — inférieur à la cible 12h00, mais cet enchaînement est prévu par la rotation officielle."+rotNote});
+      else if(reposMin<Cct.Repos_Hebdo) C.push(C_def("Repos réduit 9h–11h — convention requise","Attention",Cct.minToHHMM(reposMin),"Cible ≥ 12h00 · 11h max 1×/sem sinon","LDT Art. 8, OLDT Art. 18 al. 2","Repos de "+Cct.minToHHMM(reposMin)+" (9h-11h). Réduction permise par convention (moyenne ≥12h sur 2 tours suivants). À vérifier — sinon SEV."));
+      else C.push({Champ:"Repos réduit à 11h — réduction hebdomadaire permise",Severite:"Info",IsAvantageux:false,ValOrig:Cct.minToHHMM(reposMin),ValCorr:"Cible ≥ 12h00",Article:"LDT Art. 8",Explication:"Repos de "+Cct.minToHHMM(reposMin)+" (11h-12h). La LDT permet UNE réduction à 11h par semaine."});
     }
   }
 
-  // §1.7 — service après jour de repos (hors rotation → alerte informative)
+  // §1.7 — service après jour de repos (tient compte de la rotation)
   if(calc.PrevDayType==="Repos"&&row.Date){
-    C.push({Champ:"Service après jour de REPOS — consentement requis",Severite:"Attention",IsAvantageux:false,
+    let shouldWarn=true, ctxTxt="";
+    if(profile&&profile.EnRotation&&_inference&&ROT[(profile.Depot||"").toUpperCase()]){
+      const wp=rotWeekForDate(_inference,row.Date,ROT[profile.Depot.toUpperCase()].cycle);
+      const wk=ROT[profile.Depot.toUpperCase()].weeks[wp-1]; const dow=(row.Date.getDay()+6)%7;
+      if(wk){ const slot=wk[dow];
+        if(slotType(slot)==="tour"){ shouldWarn=false; ctxTxt=" enchaînement normal de rotation (la semaine "+wp+" prévoit un tour ce "+DOW_FR[dow]+")"; }
+        else if(slotType(slot)==="repos"||slotType(slot)==="comp"){ ctxTxt=" et la rotation prévoyait "+rotLabel(slot)+" ce "+DOW_FR[dow]; }
+      }
+    }
+    if(shouldWarn) C.push({Champ:"Service après jour de REPOS — consentement requis",Severite:"Attention",IsAvantageux:false,
       ValOrig:"Tour "+row.TourCode,ValCorr:"Accord du collaborateur nécessaire",Article:"CCT Annexe 4 §1.7, LDT Art. 10",
-      Explication:"La veille était un jour de repos (R). Un jour de repos ne peut être remplacé par un service qu'avec votre accord. Selon CCT Annexe 4 §1.7, si communiqué moins de 36h avant minuit, la journée aurait dû rester en RComp. Vérifiez que vous avez consenti — sinon signalez (SEV)."});
+      Explication:"La veille était un jour de repos (R)"+(ctxTxt?","+ctxTxt+".":".")+" Un jour de repos ne peut être remplacé par un service qu'avec votre accord. Selon CCT Annexe 4 §1.7, si communiqué moins de 36h avant minuit, la journée aurait dû rester en RComp. Vérifiez que vous avez consenti — sinon signalez (SEV)."});
   }
 }
 
@@ -1148,6 +1254,23 @@ function renderDetail(c){
       ${kv("Code base",g.Code)} ${kv("Ampl / TT",g.Ampl+" / "+g.TT+" min")} ${kv("SBN / TR",g.SBN+" / "+g.TR+" min")}
       ${g.Coll?kv("Collation",g.Coll+" ("+(g.Ampl-g.TT)+" min de pause)"):kv("Pause","aucune (Ampl = TT)")}
     </div>`;
+    // Rotation (si en rotation + inférence disponible)
+    if(SETTINGS.Mode==="en_rotation"&&_inference&&ROT[(SETTINGS.Depot||"").toUpperCase()]&&(r.Type==="Tour"||r.Type==="Formation")){
+      const rotd=ROT[SETTINGS.Depot.toUpperCase()]; const wp=rotWeekForDate(_inference,r.Date,rotd.cycle);
+      const dow=(r.Date.getDay()+6)%7; const ctx=rotContext(SETTINGS.Depot,r.TourCode,wp,dow);
+      if(ctx){
+        const statut=ctx.isConforme?'<span class="ok">conforme ✓</span>'
+          :'<span class="warn">différent — roulé '+esc(r.TourCode)+' à la place de '+esc(rotLabel(ctx.expectedToday))+'</span>';
+        html+=`<div class="sec"><h3>Rotation ${esc(SETTINGS.Depot)} — semaine ${wp} du cycle · auto-détectée</h3>
+          ${kv("Jour",DOW_FR[dow]+" de la semaine "+wp)}
+          ${kv("Tour attendu ce jour",esc(rotLabel(ctx.expectedToday)))}
+          ${kv("Tour roulé",esc(r.TourCode)+" — "+statut)}
+          ${kv("Veille attendue",esc(rotLabel(ctx.previous)))}
+          ${kv("Lendemain attendu",esc(rotLabel(ctx.next)))}
+          ${kv("Fiabilité de l'inférence",_inference.matchCount+"/"+_inference.total+" tours ("+Math.round(_inference.confidence*100)+"%)")}
+        </div>`;
+      }
+    }
   }
   if(c.Corrections.length){
     html+=`<div class="sec" style="background:transparent;border:none;padding:0"><h3>Corrections détectées (${c.Corrections.length})</h3>`;
@@ -1228,7 +1351,7 @@ const HELP=[
 <p>Glissez le PDF sur la page, ou « Ouvrir un PDF ». Ce doit être l'<b>original transN non modifié</b>.</p>
 <h4>3 — Lisez les résultats</h4>
 <p>La grille affiche chaque jour, avec un <b>statut coloré</b> et la liste des corrections. Cliquez une ligne pour le détail complet des calculs. La bande du bas résume les compteurs et indemnités du mois.</p>
-<div class="note">Le mode « En rotation » (inférence du cycle) n'est pas encore porté : l'analyse tourne en <b>hors-rotation</b> (correct pour la majorité des cas).</div>`}
+<div class="note g">Le mode « En rotation » est désormais géré : la page infère votre semaine de cycle depuis vos tours et atténue les alertes repos/§1.7 prévues par la rotation. Le détail d'un tour affiche la semaine du cycle, le tour attendu et l'écart éventuel.</div>`}
  ]},
  {grp:"Comprendre",items:[
   {id:"compteurs",t:"Les compteurs (TR, DTA, TS, SBN…)",h:`
